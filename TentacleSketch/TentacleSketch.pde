@@ -75,7 +75,7 @@ void updateTentacleSegments() {
 
 void step() {
   if (mouseReleaseX >= 0) {
-    inverseKinematics();
+    cyclicCoordinateDescentIK();
     updateTentacleSegments();
   } 
 }
@@ -88,6 +88,39 @@ void inverseKinematics() {
     
     segment.angle = atan2(target.y - prevSegment.y - tentacleY, target.x - prevSegment.x - tentacleX);
     target.set(target.x - segment.length * cos(segment.angle), target.y - segment.length * sin(segment.angle));
+  }
+  
+  // Special case for first segment.
+  TentacleSegment segment = segments.get(0);
+  segment.angle = atan2(target.y - tentacleY, target.x - tentacleX);
+}
+
+void cyclicCoordinateDescentIK() {
+  PVector target = new PVector(mouseReleaseX - tentacleX, mouseReleaseY - tentacleY);
+  TentacleSegment lastSegment = segments.get(segments.size() - 1);
+    
+  for (int i = segments.size() - 1; i >= 0; i--) {
+    TentacleSegment segment = segments.get(i);
+    
+    PVector pivot;
+    if (i > 0) {
+      TentacleSegment prevSegment = segments.get(i - 1);
+      pivot = new PVector(prevSegment.x, prevSegment.y);
+    } else {
+      pivot = new PVector(0, 0);
+    }
+    
+    PVector endpoint = new PVector(lastSegment.x, lastSegment.y);
+    
+    PVector pivotToEndpoint = PVector.sub(endpoint, pivot);
+    PVector pivotToTarget = PVector.sub(target, pivot);
+    
+    //float a = PVector.angleBetween(pivotToEndpoint, pivotToTarget);
+    float a = acos(PVector.dot(pivotToEndpoint, pivotToTarget) / pivotToEndpoint.mag() / pivotToTarget.mag());
+    segment.angle += a;
+    
+    // TODO: Optimize by only updating segments after this one.
+    updateTentacleSegments();
   }
   
   // Special case for first segment.
