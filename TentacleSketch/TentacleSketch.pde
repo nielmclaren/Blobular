@@ -59,6 +59,8 @@ void initSegments() {
 }
 
 void draw() {
+  step(1);
+  
   background(255);
   
   pushMatrix();
