@@ -3,7 +3,7 @@ public class TentacleSegment {
   public float length;
   public float angle;
   
-  // Constrain angle relative to previous segment angle.
+  // Constrain how quickly the angle can change.
   public float maxAngleDelta;
   
   // Position of the end of the tentacle segment relative to the tentacle base.

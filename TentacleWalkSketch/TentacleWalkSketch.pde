@@ -53,7 +53,7 @@ void initSegments() {
       segmentLength,
       baseAngle + radians(30) * i,
       currPos.x, currPos.y,
-      radians(30));
+      radians(20));
     segments.add(segment);
     currPos.add(segment.length * cos(segment.angle), segment.length * sin(segment.angle));
   }
@@ -136,16 +136,19 @@ void step(int count) {
     PVector target = new PVector(mouseReleaseX - tentacleX, mouseReleaseY - tentacleY);
     //PVector pivotToTarget = PVector.sub(target, pivot);
     
-    float angleDelta = PVector.angleBetween(segmentVector, target);
-    int angleSign = getRotationSign(segmentVector, target);
-    
-    segment.angle += angleSign * angleDelta;
-    
-    updateTentacleSegments();
-    
-    currSegmentIndex++;
-    if (currSegmentIndex >= segments.size()) {
-      currSegmentIndex = 0;
+    float angleError = radians(0.5);
+    float angleDelta = min(PVector.angleBetween(segmentVector, target), segment.maxAngleDelta);
+    if (angleDelta > angleError) {
+      int angleSign = getRotationSign(segmentVector, target);
+      
+      segment.angle += angleSign * angleDelta;
+      
+      updateTentacleSegments();
+    } else {
+      currSegmentIndex++;
+      if (currSegmentIndex >= segments.size()) {
+        currSegmentIndex = 0;
+      }
     }
   } 
 }
