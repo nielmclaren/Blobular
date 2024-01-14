@@ -8,6 +8,9 @@ float tentacleY;
 
 List<TentacleSegment> segments = new ArrayList<TentacleSegment>();
 
+FileNamer folderNamer;
+FileNamer fileNamer;
+
 void setup() {
   size(640, 640, P2D);
   background(255);
@@ -19,6 +22,9 @@ void setup() {
   tentacleY = height/2;
   
   initSegments();
+  
+  folderNamer = new FileNamer("screenies/build", "/");
+  fileNamer = new FileNamer(folderNamer.next() + "frame", "gif");
 }
   
 void initSegments() {
@@ -155,7 +161,7 @@ void keyReleased() {
       step();
       break;
     case 'r':
-      saveFrame("frame####.png");
+      save(fileNamer.next());
       break;
   }
 }
