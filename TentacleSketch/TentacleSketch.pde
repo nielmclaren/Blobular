@@ -11,33 +11,45 @@ List<TentacleSegment> segments = new ArrayList<TentacleSegment>();
 FileNamer folderNamer;
 FileNamer fileNamer;
 
+// Visual debugging.
+int currSegmentIndex;
+
 void setup() {
   size(640, 640, P2D);
   background(255);
   
-  mouseReleaseX = -1;
-  mouseReleaseY = -1;
-  
   tentacleX = width/2;
   tentacleY = height/2;
   
-  initSegments();
-  
   folderNamer = new FileNamer("screenies/build", "/");
   fileNamer = new FileNamer(folderNamer.next() + "frame", "gif");
+  
+  reset();
+}
+
+void reset() {
+  mouseReleaseX = -1;
+  mouseReleaseY = -1;
+  
+  segments.clear();
+  initSegments();
 }
   
 void initSegments() {
   float baseAngle = radians(-90);
-  float segmentLength = 30;
+  float baseSegmentLength = 60;
+  float tipSegmentLength = 10;
   PVector currPos = new PVector();
   
   for (int i = 0;  i < 8; i++) {
+    float segmentLength = map(i, 0, 8, baseSegmentLength, tipSegmentLength);
     TentacleSegment segment = new TentacleSegment(segmentLength, baseAngle + radians(30) * i, currPos.x, currPos.y);
     segments.add(segment);
     currPos.add(segment.length * cos(segment.angle), segment.length * sin(segment.angle));
   }
   updateTentacleSegments();
+  
+  currSegmentIndex = segments.size() - 1;
 }
 
 void draw() {
@@ -45,6 +57,27 @@ void draw() {
   
   pushMatrix();
   translate(tentacleX, tentacleY);
+  
+  stroke(255, 216, 216);
+  strokeWeight(2);
+  if (mouseReleaseX >= 0) {
+    PVector target = new PVector(mouseReleaseX - tentacleX, mouseReleaseY - tentacleY);
+    TentacleSegment lastSegment = segments.get(segments.size() - 1);
+    for (int i = 0; i < segments.size(); i++) {
+      PVector pivot;
+      if (i > 0) {
+        TentacleSegment prevSegment = segments.get(i - 1);
+        pivot = new PVector(prevSegment.x, prevSegment.y);
+      } else {
+        pivot = new PVector(0, 0);
+      }
+      
+      PVector endpoint = new PVector(lastSegment.x, lastSegment.y);
+      
+      line(pivot.x, pivot.y, endpoint.x, endpoint.y);
+      line(pivot.x, pivot.y, target.x, target.y);
+    }
+  }
   
   noFill();
   stroke(0);
@@ -58,8 +91,12 @@ void draw() {
     TentacleSegment segment = segments.get(i);
     currPos.add(segment.length * cos(segment.angle), segment.length * sin(segment.angle));
   
-    strokeWeight(1);
     stroke(64);
+    if (currSegmentIndex == i) {
+      strokeWeight(2);
+    } else {
+      strokeWeight(1);
+    }
     
     line(prevPos.x, prevPos.y, currPos.x, currPos.y);
     circle(currPos.x, currPos.y, 7);
@@ -89,8 +126,13 @@ void updateTentacleSegments() {
 
 void step() {
   if (mouseReleaseX >= 0) {
-    cyclicCoordinateDescentIK();
+    cyclicCoordinateDescentIK(currSegmentIndex);
     updateTentacleSegments();
+    
+    currSegmentIndex--;
+    if (currSegmentIndex < 0) {
+      currSegmentIndex = segments.size() - 1;
+    }
   } 
 }
 
@@ -130,7 +172,6 @@ void cyclicCoordinateDescentIK() {
     PVector pivotToTarget = PVector.sub(target, pivot);
     
     float a = PVector.angleBetween(pivotToEndpoint, pivotToTarget);
-    //float a = acos(PVector.dot(pivotToEndpoint, pivotToTarget) / pivotToEndpoint.mag() / pivotToTarget.mag());
     
     float sign = 0;
     if (pivotToEndpoint.y * pivotToTarget.x > pivotToEndpoint.x * pivotToTarget.y) {
@@ -143,6 +184,38 @@ void cyclicCoordinateDescentIK() {
     // TODO: Optimize by only updating segments after this one.
     updateTentacleSegments();
   }
+}
+
+void cyclicCoordinateDescentIK(int segmentIndex) {
+  PVector target = new PVector(mouseReleaseX - tentacleX, mouseReleaseY - tentacleY);
+  TentacleSegment lastSegment = segments.get(segments.size() - 1);
+    
+  TentacleSegment segment = segments.get(segmentIndex);
+  
+  PVector pivot;
+  if (segmentIndex > 0) {
+    TentacleSegment prevSegment = segments.get(segmentIndex - 1);
+    pivot = new PVector(prevSegment.x, prevSegment.y);
+  } else {
+    pivot = new PVector(0, 0);
+  }
+  
+  PVector endpoint = new PVector(lastSegment.x, lastSegment.y);
+  
+  PVector pivotToEndpoint = PVector.sub(endpoint, pivot);
+  PVector pivotToTarget = PVector.sub(target, pivot);
+  
+  float a = PVector.angleBetween(pivotToEndpoint, pivotToTarget);
+  
+  float sign = 0;
+  if (pivotToEndpoint.y * pivotToTarget.x > pivotToEndpoint.x * pivotToTarget.y) {
+    sign = -1;
+  } else {
+    sign = 1;
+  }
+  segment.angle += sign * a;
+  
+  updateTentacleSegments();
 }
 
 float normalizeAngle(float v) {
@@ -161,6 +234,9 @@ void keyReleased() {
       step();
       break;
     case 'r':
+      reset();
+      break;
+    case 't':
       save(fileNamer.next());
       break;
   }
