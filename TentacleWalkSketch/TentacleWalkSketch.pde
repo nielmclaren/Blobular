@@ -46,9 +46,10 @@ void reset() {
 void initSegments() {
   float baseAngle = radians(90);
   PVector currPos = new PVector();
+  int numSegments = 8;
   
-  for (int i = 0;  i < 8; i++) {
-    float segmentLength = map(i, 0, 8, baseSegmentLength, tipSegmentLength);
+  for (int i = 0;  i < numSegments; i++) {
+    float segmentLength = map(i, 0, numSegments, baseSegmentLength, tipSegmentLength);
     TentacleSegment segment = new TentacleSegment(
       segmentLength,
       baseAngle + radians(30) * i,
@@ -123,34 +124,61 @@ void updateTentacleSegments() {
 
 void step(int count) {
   if (mouseReleaseX >= 0) {
-    PVector pivot;
-    if (currSegmentIndex > 0) {
-      TentacleSegment prevSegment = segments.get(currSegmentIndex - 1);
-      pivot = new PVector(prevSegment.x, prevSegment.y);
-    } else {
-      pivot = new PVector(0, 0);
-    }
-    
     TentacleSegment segment = segments.get(currSegmentIndex);
+    PVector pivot = getPivot(currSegmentIndex);
     PVector segmentVector = segment.getVector();
+    
+    // Only using target to indicate direction so don't need to subtract the pivot point.
     PVector target = new PVector(mouseReleaseX - tentacleX, mouseReleaseY - tentacleY);
-    //PVector pivotToTarget = PVector.sub(target, pivot);
     
     float angleError = radians(0.5);
     float angleDelta = min(PVector.angleBetween(segmentVector, target), segment.maxAngleDelta);
-    if (angleDelta > angleError) {
-      int angleSign = getRotationSign(segmentVector, target);
-      
-      segment.angle += angleSign * angleDelta;
-      
-      updateTentacleSegments();
-    } else {
+    
+    int angleSign = getRotationSign(segmentVector, target);
+    
+    segment.angle += angleSign * angleDelta;
+    segment.setEndpoint(PVector.add(pivot, segment.getVector()));
+    
+    dragRemainingSegments(currSegmentIndex + 1);
+    updateTentacleSegments();
+    
+    // If this segment is in position move onto next segment for the next iteration.
+    angleDelta = min(PVector.angleBetween(segment.getVector(), target), segment.maxAngleDelta);
+    if (angleDelta <= angleError) {
       currSegmentIndex++;
       if (currSegmentIndex >= segments.size()) {
         currSegmentIndex = 0;
       }
     }
   } 
+}
+
+void dragRemainingSegments(int startSegmentIndex) {
+  for (int i = startSegmentIndex; i < segments.size(); i++) {
+    PVector target;
+    if (i > 0) {
+      TentacleSegment prevSegment = segments.get(i - 1);
+      target = new PVector(prevSegment.x, prevSegment.y);
+    } else {
+      target = new PVector(0, 0);
+    }
+  
+    TentacleSegment segment = segments.get(i);
+    PVector endpoint = new PVector(segment.x, segment.y);
+    PVector targetToEndpoint = PVector.sub(endpoint, target);
+    
+    segment.angle = targetToEndpoint.heading();
+    segment.setEndpoint(PVector.add(target, segment.getVector()));
+  }
+}
+
+PVector getPivot(int segmentIndex) {
+    if (segmentIndex > 0) {
+      TentacleSegment prevSegment = segments.get(segmentIndex - 1);
+      return new PVector(prevSegment.x, prevSegment.y);
+    } else {
+      return new PVector(0, 0);
+    }
 }
 
 float normalizeAngle(float v) {

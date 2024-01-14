@@ -22,4 +22,9 @@ public class TentacleSegment {
   public PVector getVector() {
     return new PVector(length * cos(angle), length * sin(angle));
   }
+  
+  public void setEndpoint(PVector v) {
+    x = v.x;
+    y = v.y;
+  }
 }
