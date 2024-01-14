@@ -151,6 +151,22 @@ void inverseKinematics() {
   segment.angle = atan2(target.y - tentacleY, target.x - tentacleX);
 }
 
+void inverseKinematics(int segmentIndex) {
+  PVector target = new PVector(mouseReleaseX, mouseReleaseY);
+  TentacleSegment segment = segments.get(segmentIndex);
+  
+  PVector pivot;
+  if (segmentIndex > 0) {
+    TentacleSegment prevSegment = segments.get(segmentIndex - 1);
+    pivot = new PVector(prevSegment.x, prevSegment.y);
+  } else {
+    pivot = new PVector(0, 0);
+  }
+  
+  segment.angle = atan2(target.y - pivot.y - tentacleY, target.x - pivot.x - tentacleX);
+  target.set(target.x - segment.length * cos(segment.angle), target.y - segment.length * sin(segment.angle));
+}
+
 void cyclicCoordinateDescentIK() {
   PVector target = new PVector(mouseReleaseX - tentacleX, mouseReleaseY - tentacleY);
   TentacleSegment lastSegment = segments.get(segments.size() - 1);
