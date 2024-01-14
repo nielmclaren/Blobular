@@ -43,7 +43,11 @@ void initSegments() {
   
   for (int i = 0;  i < 8; i++) {
     float segmentLength = map(i, 0, 8, baseSegmentLength, tipSegmentLength);
-    TentacleSegment segment = new TentacleSegment(segmentLength, baseAngle + radians(30) * i, currPos.x, currPos.y);
+    TentacleSegment segment = new TentacleSegment(
+      segmentLength,
+      baseAngle + radians(30) * i,
+      currPos.x, currPos.y,
+      radians(15));
     segments.add(segment);
     currPos.add(segment.length * cos(segment.angle), segment.length * sin(segment.angle));
   }
@@ -124,14 +128,16 @@ void updateTentacleSegments() {
   } 
 }
 
-void step() {
+void step(int count) {
   if (mouseReleaseX >= 0) {
-    cyclicCoordinateDescentIK(currSegmentIndex);
-    updateTentacleSegments();
-    
-    currSegmentIndex--;
-    if (currSegmentIndex < 0) {
-      currSegmentIndex = segments.size() - 1;
+    for (int i = 0; i < count; i++) {
+      cyclicCoordinateDescentIK(currSegmentIndex);
+      updateTentacleSegments();
+      
+      currSegmentIndex--;
+      if (currSegmentIndex < 0) {
+        currSegmentIndex = segments.size() - 1;
+      }
     }
   } 
 }
@@ -221,7 +227,9 @@ void cyclicCoordinateDescentIK(int segmentIndex) {
   PVector pivotToEndpoint = PVector.sub(endpoint, pivot);
   PVector pivotToTarget = PVector.sub(target, pivot);
   
-  float a = PVector.angleBetween(pivotToEndpoint, pivotToTarget);
+  float angleDelta = PVector.angleBetween(pivotToEndpoint, pivotToTarget);
+  assert angleDelta >= 0;
+  float constrainedAngleDelta = angleDelta > segment.maxAngleDelta ? segment.maxAngleDelta : angleDelta;
   
   float sign = 0;
   if (pivotToEndpoint.y * pivotToTarget.x > pivotToEndpoint.x * pivotToTarget.y) {
@@ -229,7 +237,7 @@ void cyclicCoordinateDescentIK(int segmentIndex) {
   } else {
     sign = 1;
   }
-  segment.angle += sign * a;
+  segment.angle += sign * constrainedAngleDelta;
   
   updateTentacleSegments();
 }
@@ -247,7 +255,7 @@ float normalizeAngle(float v) {
 void keyReleased() {
   switch (key) {
     case ' ':
-      step();
+      step(8);
       break;
     case 'r':
       reset();
