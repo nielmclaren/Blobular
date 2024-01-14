@@ -1,5 +1,9 @@
 import java.util.List;
 
+
+final float baseSegmentLength = 60;
+final float tipSegmentLength = 10;
+
 float mouseReleaseX;
 float mouseReleaseY;
 
@@ -37,8 +41,6 @@ void reset() {
   
 void initSegments() {
   float baseAngle = radians(-90);
-  float baseSegmentLength = 60;
-  float tipSegmentLength = 10;
   PVector currPos = new PVector();
   
   for (int i = 0;  i < 8; i++) {
@@ -47,7 +49,7 @@ void initSegments() {
       segmentLength,
       baseAngle + radians(30) * i,
       currPos.x, currPos.y,
-      radians(15));
+      radians(30));
     segments.add(segment);
     currPos.add(segment.length * cos(segment.angle), segment.length * sin(segment.angle));
   }
@@ -135,7 +137,7 @@ void step(int count) {
       updateTentacleSegments();
       
       currSegmentIndex--;
-      if (currSegmentIndex < 0) {
+      if (currSegmentIndex <= 0) {
         currSegmentIndex = segments.size() - 1;
       }
     }
@@ -214,12 +216,15 @@ void cyclicCoordinateDescentIK(int segmentIndex) {
     
   TentacleSegment segment = segments.get(segmentIndex);
   
+  PVector prevSegmentVector;
   PVector pivot;
   if (segmentIndex > 0) {
     TentacleSegment prevSegment = segments.get(segmentIndex - 1);
+    prevSegmentVector = new PVector(prevSegment.length * cos(prevSegment.angle), prevSegment.length * sin(prevSegment.angle));
     pivot = new PVector(prevSegment.x, prevSegment.y);
   } else {
     pivot = new PVector(0, 0);
+    prevSegmentVector = new PVector(0, baseSegmentLength);
   }
   
   PVector endpoint = new PVector(lastSegment.x, lastSegment.y);
@@ -228,8 +233,6 @@ void cyclicCoordinateDescentIK(int segmentIndex) {
   PVector pivotToTarget = PVector.sub(target, pivot);
   
   float angleDelta = PVector.angleBetween(pivotToEndpoint, pivotToTarget);
-  assert angleDelta >= 0;
-  float constrainedAngleDelta = angleDelta > segment.maxAngleDelta ? segment.maxAngleDelta : angleDelta;
   
   float sign = 0;
   if (pivotToEndpoint.y * pivotToTarget.x > pivotToEndpoint.x * pivotToTarget.y) {
@@ -237,8 +240,31 @@ void cyclicCoordinateDescentIK(int segmentIndex) {
   } else {
     sign = 1;
   }
-  segment.angle += sign * constrainedAngleDelta;
   
+  float candidateAngle = segment.angle + sign * angleDelta;
+  PVector candidate = new PVector(segment.length * cos(candidateAngle), segment.length * sin(candidateAngle));
+  if (PVector.angleBetween(candidate, prevSegmentVector) < segment.maxAngleDelta) {
+    segment.angle = candidateAngle;
+  } else {
+    // TODO: Optimize.
+    PVector constrainedA = prevSegmentVector.copy();
+    constrainedA.rotate(segment.maxAngleDelta);
+    PVector constrainedB = prevSegmentVector.copy();
+    constrainedB.rotate(-segment.maxAngleDelta);
+    if (PVector.angleBetween(candidate, constrainedA) < PVector.angleBetween(candidate, constrainedB)) {
+      println("prev: " + round(degrees(prevSegmentVector.heading()))
+        + "\tcurr: " + round(degrees(segment.angle))
+        + "\tcandidate: " + round(degrees(candidateAngle))
+        + "\t(A): " + round(degrees(constrainedA.heading())) + "\tb: " + round(degrees(constrainedB.heading())));
+      segment.angle = constrainedA.heading();
+    } else {
+      println("prev: " + round(degrees(prevSegmentVector.heading()))
+        + "\tcurr: " + round(degrees(segment.angle))
+        + "\tcandidate: " + round(degrees(candidateAngle))
+        + "\ta: " + round(degrees(constrainedA.heading())) + "\t(B): " + round(degrees(constrainedB.heading())));
+      segment.angle = constrainedB.heading();
+    }
+  }
   updateTentacleSegments();
 }
 
@@ -255,7 +281,7 @@ float normalizeAngle(float v) {
 void keyReleased() {
   switch (key) {
     case ' ':
-      step(8);
+      step(1);
       break;
     case 'r':
       reset();
