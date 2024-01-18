@@ -1,6 +1,5 @@
 import java.util.List;
 
-
 final float baseSegmentLength = 60;
 final float tipSegmentLength = 10;
 
@@ -13,7 +12,10 @@ float tentacleY;
 List<TentacleSegment> segments = new ArrayList<TentacleSegment>();
 List<TentacleInstruction> instructions = new ArrayList<TentacleInstruction>();
 
+PVector currTargetDirection;
 float surfaceY;
+int phase;
+boolean collisionDetected;
 
 FileNamer folderNamer;
 FileNamer fileNamer;
@@ -28,7 +30,10 @@ void setup() {
   segments = new ArrayList<TentacleSegment>();
   instructions = new ArrayList<TentacleInstruction>();
   
+  currTargetDirection = null;
   surfaceY = height * 0.75;
+  phase = 0;
+  collisionDetected = false;
   
   folderNamer = new FileNamer("screenies/build", "/");
   fileNamer = new FileNamer(folderNamer.next() + "frame", "gif");
@@ -64,6 +69,8 @@ void initSegments() {
 }
 
 void draw() {
+  step(segments.size());
+  
   background(Palette.light[2]);
   
   noStroke();
@@ -125,6 +132,36 @@ void updateTentacleSegments() {
 }
 
 void step(int count) {
+  if (instructions.size() <= 0) {
+    if (phase == 0) {
+      // Need a little extra room for the tentacle segments to get through.
+      float clearance = 10;
+
+      float tentacleLength = getTentacleLength();
+      float deltaY = surfaceY - tentacleY - clearance;
+      float deltaX = sqrt(tentacleLength * tentacleLength - deltaY * deltaY);
+
+      TentacleInstruction instruction = new TentacleInstruction();
+      currTargetDirection = new PVector(deltaX, deltaY);
+      instruction.targetDirection = currTargetDirection;
+      instructions.add(instruction);
+
+      phase++;
+    } else if (phase == 1) {
+      TentacleSegment lastSegment = segments.get(segments.size() - 1);
+      if (currTargetDirection.x < 0 && !collisionDetected) {
+        // Full step is complete.
+        phase = 0;
+      } else {
+        TentacleInstruction instruction = new TentacleInstruction();
+        currTargetDirection.rotate(radians(10));
+        instruction.targetDirection = currTargetDirection;
+        instructions.add(instruction);
+      }
+    }
+  }
+  
+  collisionDetected = false;
   for (TentacleInstruction instruction : instructions) {
     TentacleSegment segment = segments.get(instruction.segmentIndex);
     PVector pivot = getPivot(instruction.segmentIndex);
@@ -146,6 +183,7 @@ void step(int count) {
     
     boolean collided = handleCollisions(segment, pivot, prevRotation, angleSign, angleDelta);
     if (collided) {
+      collisionDetected = true;
       instruction.rotationDirection = angleSign;
     }
     
@@ -163,6 +201,14 @@ void step(int count) {
   } 
 
   instructions.removeIf(instruction -> instruction.isComplete);
+}
+
+float getTentacleLength() {
+  float total = 0;
+  for (TentacleSegment segment : segments) {
+    total += segment.length;
+  }
+  return total;
 }
 
 boolean handleCollisions(TentacleSegment segment, PVector pivot, float prevRotation, int angleSign, float angleDelta) {
@@ -185,6 +231,15 @@ boolean handleCollisions(TentacleSegment segment, PVector pivot, float prevRotat
     segment.updateEndpoint(pivot);
     
     return true;
+  }
+  return false;
+}
+
+boolean detectCollision() {
+  for (TentacleSegment segment : segments) {
+    if (detectCollision(segment)) {
+      return true;
+    }
   }
   return false;
 }
@@ -216,6 +271,8 @@ void dragRemainingSegments(int startSegmentIndex) {
 
 void handleDragCollisions(TentacleSegment segment, PVector pivot) {
   if (detectCollision(segment)) {
+    collisionDetected = true;
+
     float prevAngle = segment.angle;
 
     // Try rotating in both directions to find the minimum amount of rotation necessary.
@@ -273,6 +330,7 @@ void mouseReleased() {
   mouseReleaseX = mouseX;
   mouseReleaseY = mouseY;
   
+  instructions.clear();
   TentacleInstruction instruction = new TentacleInstruction();
   instruction.targetDirection = new PVector(mouseX - tentacleX, mouseY - tentacleY);
   instructions.add(instruction);
