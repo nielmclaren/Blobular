@@ -27,4 +27,8 @@ public class TentacleSegment {
     x = v.x;
     y = v.y;
   }
+  
+  public void updateEndpoint(PVector pivot) {
+    setEndpoint(PVector.add(pivot, getVector()));
+  }
 }
