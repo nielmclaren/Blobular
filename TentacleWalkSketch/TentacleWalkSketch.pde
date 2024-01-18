@@ -195,20 +195,44 @@ boolean detectCollision(TentacleSegment segment) {
 
 void dragRemainingSegments(int startSegmentIndex) {
   for (int i = startSegmentIndex; i < segments.size(); i++) {
-    PVector target;
+    PVector pivot;
     if (i > 0) {
       TentacleSegment prevSegment = segments.get(i - 1);
-      target = new PVector(prevSegment.x, prevSegment.y);
+      pivot = new PVector(prevSegment.x, prevSegment.y);
     } else {
-      target = new PVector(0, 0);
+      pivot = new PVector(0, 0);
     }
   
     TentacleSegment segment = segments.get(i);
     PVector endpoint = new PVector(segment.x, segment.y);
-    PVector targetToEndpoint = PVector.sub(endpoint, target);
+    PVector pivotToEndpoint = PVector.sub(endpoint, pivot);
     
-    segment.angle = targetToEndpoint.heading();
-    segment.setEndpoint(PVector.add(target, segment.getVector()));
+    segment.angle = pivotToEndpoint.heading();
+    segment.setEndpoint(PVector.add(pivot, segment.getVector()));
+
+    handleDragCollisions(segment, pivot);
+  }
+}
+
+void handleDragCollisions(TentacleSegment segment, PVector pivot) {
+  if (detectCollision(segment)) {
+    float prevAngle = segment.angle;
+
+    // Try rotating in both directions to find the minimum amount of rotation necessary.
+    for (float a = 0; a < PI; a += radians(1)) {
+      segment.angle = prevAngle + a;
+      segment.updateEndpoint(pivot);
+
+      if (!detectCollision(segment)) return;
+
+      segment.angle = prevAngle - a;
+      segment.updateEndpoint(pivot);
+
+      if (!detectCollision(segment)) return;
+    }
+
+    // FIXME: Can I throw an exception here instead?
+    println("No way to not collide!");
   }
 }
 
