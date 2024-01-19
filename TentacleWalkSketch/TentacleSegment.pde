@@ -1,34 +1,66 @@
 
 public class TentacleSegment {
-  public float length;
-  public float angle;
+  protected TentacleSegment parent;
+
+  // Position of the end of the tentacle segment relative to the tentacle base.
+  protected PVector endpoint;
+
+  protected float length;
+  protected float angle;
   
   // Constrain how quickly the angle can change.
   public float maxAngleDelta;
   
-  // Position of the end of the tentacle segment relative to the tentacle base.
-  public float x;
-  public float y;
+  public boolean isFixed;
   
-  TentacleSegment(float lengthArg, float angleArg, float xArg, float yArg, float maxAngleDeltaArg) {
+  TentacleSegment(TentacleSegment parentArg, float lengthArg, float angleArg, float maxAngleDeltaArg) {
+    parent = parentArg;
+
     length = lengthArg;
     angle = angleArg;
-    x = xArg;
-    y = yArg;
+    endpoint = new PVector();
+    updateEndpoint();
+
     maxAngleDelta = maxAngleDeltaArg;
+    isFixed = false;
+  }
+
+  public float length() {
+    return length;
+  }
+
+  public float angle() {
+    return angle;
+  }
+
+  public void angle(float v) {
+    angle = v;
+    updateEndpoint();
+  }
+
+  public float pivotX() {
+    return parent == null ? 0 : parent.endpointX();
+  }
+
+  public float pivotY() {
+    return parent == null ? 0 : parent.endpointY();
+  }
+  
+  public float endpointX() {
+    return endpoint.x;
+  }
+
+  public float endpointY() {
+    return endpoint.y;
   }
   
   // Get a vector representing this segment's length and angle.
   public PVector getVector() {
     return new PVector(length * cos(angle), length * sin(angle));
   }
-  
-  public void setEndpoint(PVector v) {
-    x = v.x;
-    y = v.y;
-  }
-  
-  public void updateEndpoint(PVector pivot) {
-    setEndpoint(PVector.add(pivot, getVector()));
+
+  private void updateEndpoint() {
+    endpoint.x = (parent == null ? 0 : parent.endpointX()) + length * cos(angle);
+    endpoint.y = (parent == null ? 0 : parent.endpointY()) + length * sin(angle);
   }
 }
