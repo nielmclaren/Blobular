@@ -165,13 +165,13 @@ public class Tentacle {
 
       // Try rotating in both directions to find the minimum amount of rotation necessary.
       for (float a = 0; a < PI; a += radians(1)) {
-      segment.angle(prevAngle + a);
+        segment.angle(prevAngle + a);
 
-      if (!detectCollision(segment)) return;
+        if (!detectCollision(segment)) return;
 
-      segment.angle(prevAngle - a);
+        segment.angle(prevAngle - a);
 
-      if (!detectCollision(segment)) return;
+        if (!detectCollision(segment)) return;
       }
 
       // FIXME: Can I throw an exception here instead?
@@ -181,12 +181,11 @@ public class Tentacle {
 
   // TODO: Is getPivot() still needed?
   private PVector getPivot(int segmentIndex) {
-  if (segmentIndex > 0) {
-    TentacleSegment prevSegment = segments.get(segmentIndex - 1);
-    return new PVector(prevSegment.endpointX(), prevSegment.endpointY());
-  } else {
-    return new PVector(0, 0);
+    if (segmentIndex > 0) {
+      TentacleSegment prevSegment = segments.get(segmentIndex - 1);
+      return new PVector(prevSegment.endpointX(), prevSegment.endpointY());
+    } else {
+      return new PVector(0, 0);
+    }
   }
-}
-
 }
