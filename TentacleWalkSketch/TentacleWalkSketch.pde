@@ -49,17 +49,36 @@ void draw() {
   rectMode(CENTER);
   square(0, 0, 10);
 
-  PVector prevPos = new PVector(0, 0);
-  PVector currPos = new PVector(0, 0);
+  PVector prevPos = new PVector();
+  PVector currPos = new PVector();
   List<TentacleSegment> segments = tentacle.segments();
   for (int i = 0; i < segments.size(); i++) {
     TentacleSegment segment = segments.get(i);
     currPos.add(segment.getVector());
   
-    stroke(Palette.base[1]);
     strokeWeight(2);
+    stroke(Palette.base[1]);
     
     line(prevPos.x, prevPos.y, currPos.x, currPos.y);
+    
+    prevPos.set(currPos);
+  }
+
+  prevPos = new PVector();
+  currPos = new PVector();
+  for (int i = 0; i < segments.size(); i++) {
+    TentacleSegment segment = segments.get(i);
+    currPos.add(segment.getVector());
+  
+    strokeWeight(2);
+    if (segment.isFixed) {
+      stroke(Palette.base[3]);
+      fill(Palette.light[3]);
+    } else {
+      stroke(Palette.base[1]);
+      fill(Palette.light[1]);
+    }
+    
     circle(currPos.x, currPos.y, 7);
     
     prevPos.set(currPos);
