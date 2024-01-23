@@ -31,6 +31,8 @@ void setup() {
 }
 
 void draw() {
+  tentacle.step();
+
   background(Palette.light[2]);
   
   noStroke();
@@ -49,26 +51,34 @@ void draw() {
   rectMode(CENTER);
   square(0, 0, 10);
 
-  PVector prevPos = new PVector();
-  PVector currPos = new PVector();
+  drawSegments();
+
+  popMatrix();
+  
+  if (mouseReleaseX >= 0) {
+    noFill();
+    stroke(Palette.base[3]);
+    strokeWeight(2);
+    float offset = 5;
+    line(mouseReleaseX - offset, mouseReleaseY - offset, mouseReleaseX + offset, mouseReleaseY + offset);
+    line(mouseReleaseX + offset, mouseReleaseY - offset, mouseReleaseX - offset, mouseReleaseY + offset);
+  }
+}
+
+void drawSegments() {
+  // Draw the line first.
   List<TentacleSegment> segments = tentacle.segments();
   for (int i = 0; i < segments.size(); i++) {
     TentacleSegment segment = segments.get(i);
-    currPos.add(segment.getVector());
   
     strokeWeight(2);
     stroke(Palette.base[1]);
-    
-    line(prevPos.x, prevPos.y, currPos.x, currPos.y);
-    
-    prevPos.set(currPos);
+    line(segment.pivotX(), segment.pivotY(), segment.endpointX(), segment.endpointY());
   }
 
-  prevPos = new PVector();
-  currPos = new PVector();
+  // Draw circles over the line.
   for (int i = 0; i < segments.size(); i++) {
     TentacleSegment segment = segments.get(i);
-    currPos.add(segment.getVector());
   
     strokeWeight(2);
     if (segment.isFixed) {
@@ -79,20 +89,9 @@ void draw() {
       fill(Palette.light[1]);
     }
     
-    circle(currPos.x, currPos.y, 7);
-    
-    prevPos.set(currPos);
+    circle(segment.endpointX(), segment.endpointY(), 9);
   }
-  
-  popMatrix();
-  
-  if (mouseReleaseX >= 0) {
-    noFill();
-    stroke(Palette.base[3]);
-    strokeWeight(2);
-    circle(mouseReleaseX, mouseReleaseY, 5);
-  }
-}
+} 
 
 float normalizeAngle(float v) {
   while (v < 0) {
@@ -106,12 +105,6 @@ float normalizeAngle(float v) {
 
 void keyReleased() {
   switch (key) {
-    case 'a':
-      tentacleX -= 10;
-      break;
-    case 'd':
-      tentacleX += 10;
-      break;
     case ' ':
       tentacle.step(1);
       break;

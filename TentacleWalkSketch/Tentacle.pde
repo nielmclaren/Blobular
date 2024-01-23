@@ -16,21 +16,20 @@ public class Tentacle {
     float baseAngle = radians(90);
     int numSegments = 8;
 
-    TentacleSegment parent = null;
     PVector currPos = new PVector();
     
     for (int i = 0;  i < numSegments; i++) {
       float segmentLength = map(i, 0, numSegments, baseSegmentLength, tipSegmentLength);
       TentacleSegment segment = new TentacleSegment(
-      parent,
-      segmentLength,
-      baseAngle + radians(30) * i,
-      radians(20));
+        segmentLength,
+        baseAngle + radians(30) * i,
+        radians(20));
+
+      segment.pivot(currPos);
+      currPos.add(segment.getVector());
+      segment.endpoint(currPos);
 
       segments.add(segment);
-      currPos.add(segment.getVector());
-
-      parent = segment;
     }
   }
 
@@ -56,7 +55,7 @@ public class Tentacle {
   public void step() {
     for (TentacleInstruction instruction : instructions) {
       TentacleSegment segment = segments.get(instruction.segmentIndex);
-      PVector pivot = getPivot(instruction.segmentIndex);
+      PVector pivot = segment.pivot();
       PVector segmentVector = segment.getVector();
       
       float prevRotation = segment.angle();
@@ -65,17 +64,18 @@ public class Tentacle {
       
       int angleSign;
       if (instruction.rotationDirection == 0) {
-      angleSign = getRotationSign(segmentVector, instruction.targetDirection);
+        angleSign = getRotationSign(segmentVector, instruction.targetDirection);
       } else {
-      angleSign = instruction.rotationDirection;
+        angleSign = instruction.rotationDirection;
       }
       
       segment.angle(segment.angle() + angleSign * angleDelta);
+      segment.updateEndpoint();
       
       boolean collided = handleCollisions(segment, prevRotation, angleSign, angleDelta);
       if (collided) {
-      instruction.rotationDirection = angleSign;
-      segment.isFixed = true;
+        instruction.rotationDirection = angleSign;
+        segment.isFixed = true;
       }
       
       dragRemainingSegments(instruction.segmentIndex + 1);
@@ -83,10 +83,10 @@ public class Tentacle {
       // If this segment is in position then move onto next segment for the next iteration.
       angleDelta = min(PVector.angleBetween(segment.getVector(), instruction.targetDirection), segment.maxAngleDelta);
       if (collided || angleDelta <= angleError) {
-      instruction.segmentIndex++;
-      if (instruction.segmentIndex >= segments.size()) {
-        instruction.isComplete = true;
-      }
+        instruction.segmentIndex++;
+        if (instruction.segmentIndex >= segments.size()) {
+          instruction.isComplete = true;
+        }
       }
     } 
 
@@ -110,16 +110,18 @@ public class Tentacle {
       // Rotate 1° at a time until collision detected.
       float prevAngle = 0;
       for (float a = 0; a < angleDelta; a += radians(1)) {
-      segment.angle(prevRotation + angleSign * a);
-      
-      if (detectCollision(segment)) {
-        break;
-      }
-      
-      prevAngle = segment.angle();
+        segment.angle(prevRotation + angleSign * a);
+        segment.updateEndpoint();
+        
+        if (detectCollision(segment)) {
+          break;
+        }
+        
+        prevAngle = segment.angle();
       }
       
       segment.angle(prevAngle);
+      segment.updateEndpoint();
       
       return true;
     }
@@ -129,7 +131,7 @@ public class Tentacle {
   private boolean detectCollision() {
     for (TentacleSegment segment : segments) {
       if (detectCollision(segment)) {
-      return true;
+        return true;
       }
     }
     return false;
@@ -139,23 +141,41 @@ public class Tentacle {
     return tentacleY + segment.endpointY() > surfaceY;
   }
 
+  private void updateSegmentPivotsAndEndpoints(int startSegmentIndex) {
+    for (int i = startSegmentIndex; i < segments.size(); i++) {
+      TentacleSegment segment = segments.get(i);
+      if (i > 0) {
+        TentacleSegment prevSegment = segments.get(i - 1);
+        segment.pivot(prevSegment.endpoint());
+      } else {
+        segment.pivot(new PVector());
+      }
+      segment.updateEndpoint();
+    }
+  }
+
+  // Rotate the each segment around its endpoint so it
+  // points at the previous segment's endpoint. Then move
+  // the segment's pivot to the previous segment's endpoint.
   private void dragRemainingSegments(int startSegmentIndex) {
     for (int i = startSegmentIndex; i < segments.size(); i++) {
-      PVector pivot;
+      PVector target;
       if (i > 0) {
-      TentacleSegment prevSegment = segments.get(i - 1);
-      pivot = new PVector(prevSegment.endpointX(), prevSegment.endpointY());
+        TentacleSegment prevSegment = segments.get(i - 1);
+        target = prevSegment.endpoint();
       } else {
-      pivot = new PVector(0, 0);
+        target = new PVector(0, 0);
       }
     
       TentacleSegment segment = segments.get(i);
-      PVector endpoint = new PVector(segment.endpointX(), segment.endpointY());
-      PVector pivotToEndpoint = PVector.sub(endpoint, pivot);
+      PVector endpoint = segment.endpoint();
+      PVector targetToEndpoint = PVector.sub(endpoint, target);
       
-      segment.angle(pivotToEndpoint.heading());
+      segment.pivot(target);
+      segment.angle(targetToEndpoint.heading());
+      segment.updateEndpoint();
 
-      handleDragCollisions(segment, pivot);
+      handleDragCollisions(segment, target);
     }
   }
 
@@ -166,26 +186,18 @@ public class Tentacle {
       // Try rotating in both directions to find the minimum amount of rotation necessary.
       for (float a = 0; a < PI; a += radians(1)) {
         segment.angle(prevAngle + a);
+        segment.updateEndpoint();
 
         if (!detectCollision(segment)) return;
 
         segment.angle(prevAngle - a);
+        segment.updateEndpoint();
 
         if (!detectCollision(segment)) return;
       }
 
       // FIXME: Can I throw an exception here instead?
       println("No way to not collide!");
-    }
-  }
-
-  // TODO: Is getPivot() still needed?
-  private PVector getPivot(int segmentIndex) {
-    if (segmentIndex > 0) {
-      TentacleSegment prevSegment = segments.get(segmentIndex - 1);
-      return new PVector(prevSegment.endpointX(), prevSegment.endpointY());
-    } else {
-      return new PVector(0, 0);
     }
   }
 }

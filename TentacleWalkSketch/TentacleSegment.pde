@@ -1,8 +1,9 @@
 
 public class TentacleSegment {
-  protected TentacleSegment parent;
+  // Position of the start of the tentacle segment relative to the tentacle base. The segment rotates around this point.
+  protected PVector pivot;
 
-  // Position of the end of the tentacle segment relative to the tentacle base.
+  // Position of the end of the tentacle segment relative to the tentacle base. This point depends on pivot, length, and angle.
   protected PVector endpoint;
 
   protected float length;
@@ -13,13 +14,12 @@ public class TentacleSegment {
   
   public boolean isFixed;
   
-  TentacleSegment(TentacleSegment parentArg, float lengthArg, float angleArg, float maxAngleDeltaArg) {
-    parent = parentArg;
+  TentacleSegment(float lengthArg, float angleArg, float maxAngleDeltaArg) {
 
     length = lengthArg;
     angle = angleArg;
+    pivot = new PVector();
     endpoint = new PVector();
-    updateEndpoint();
 
     maxAngleDelta = maxAngleDeltaArg;
     isFixed = false;
@@ -38,20 +38,60 @@ public class TentacleSegment {
     updateEndpoint();
   }
 
+  public PVector pivot() {
+    return pivot.copy();
+  }
+
+  public void pivot(PVector v) {
+    pivot.set(v);
+  }
+
+  public void pivot(float x, float y) {
+    pivot.set(x, y);
+  }
+
   public float pivotX() {
-    return parent == null ? 0 : parent.endpointX();
+    return pivot.x;
+  }
+
+  public void pivotX(float v) {
+    pivot.x = v;
   }
 
   public float pivotY() {
-    return parent == null ? 0 : parent.endpointY();
+    return pivot.y;
   }
   
+  public void pivotY(float v) {
+    pivot.y = v;
+  }
+
+  public PVector endpoint() {
+    return endpoint.copy();
+  }
+
+  public void endpoint(PVector v) {
+    endpoint.set(v);
+  }
+
+  public void endpoint(float x, float y) {
+    endpoint.set(x, y);
+  }
+
   public float endpointX() {
     return endpoint.x;
   }
 
+  public void endpointX(float v) {
+    endpoint.x = v;
+  }
+
   public float endpointY() {
     return endpoint.y;
+  }
+
+  public void endpointY(float v) {
+    endpoint.y = v;
   }
   
   // Get a vector representing this segment's length and angle.
@@ -59,8 +99,15 @@ public class TentacleSegment {
     return new PVector(length * cos(angle), length * sin(angle));
   }
 
-  private void updateEndpoint() {
-    endpoint.x = (parent == null ? 0 : parent.endpointX()) + length * cos(angle);
-    endpoint.y = (parent == null ? 0 : parent.endpointY()) + length * sin(angle);
+  // Update pivot based on the endpoint, angle, and length.
+  public void updatePivot() {
+    pivot.x = endpoint.x - length * cos(angle);
+    pivot.y = endpoint.y - length * sin(angle);
+  }
+
+  // Update endpoint based on the pivot, angle, and length.
+  public void updateEndpoint() {
+    endpoint.x = pivot.x + length * cos(angle);
+    endpoint.y = pivot.y + length * sin(angle);
   }
 }
