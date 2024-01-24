@@ -113,6 +113,14 @@ void keyReleased() {
       tentacle.shiftBase(10, 0);
       tentacleX += 10;
       break;
+    case 'w':
+      tentacle.shiftBase(0, -10);
+      tentacleY -= 10;
+      break;
+    case 's':
+      tentacle.shiftBase(0, 10);
+      tentacleY += 10;
+      break;
     case ' ':
       tentacle.step(1);
       break;
