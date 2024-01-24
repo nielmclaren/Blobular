@@ -31,7 +31,7 @@ void setup() {
 }
 
 void draw() {
-  tentacle.step();
+  //tentacle.step();
 
   background(Palette.light[2]);
   
@@ -105,6 +105,14 @@ float normalizeAngle(float v) {
 
 void keyReleased() {
   switch (key) {
+    case 'a':
+      tentacle.shiftBase(-10, 0);
+      tentacleX -= 10;
+      break;
+    case 'd':
+      tentacle.shiftBase(10, 0);
+      tentacleX += 10;
+      break;
     case ' ':
       tentacle.step(1);
       break;

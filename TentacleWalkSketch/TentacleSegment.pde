@@ -93,6 +93,14 @@ public class TentacleSegment {
   public void endpointY(float v) {
     endpoint.y = v;
   }
+
+  // Move the pivot and the endpoint by the specified amount.
+  public void shift(float x, float y) {
+    pivot.x += x;
+    pivot.y += y;
+    endpoint.x += x;
+    endpoint.y += y;
+  }
   
   // Get a vector representing this segment's length and angle.
   public PVector getVector() {

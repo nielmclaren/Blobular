@@ -46,6 +46,92 @@ public class Tentacle {
     instructions.add(instruction);
   }
 
+  public void shiftBase(float x, float y) {
+    // Shift all segments in the opposite direction.
+    for (TentacleSegment segment : segments) {
+      segment.shift(-x, -y);
+    }
+
+    ikToShiftedBase();
+  }
+
+  private void ikToShiftedBase() {
+    // The segments from the base up to but not including the first fixed segment
+    // will be able to move toward the new base via ik.
+    int fixedSegmentIndex = getFirstFixedSegmentIndex();
+    int unfixedSegmentIndex;
+    if (fixedSegmentIndex < 0) {
+      // No segments are fixed so they can all move toward the new base.
+      unfixedSegmentIndex = segments.size() - 1;
+    } else if (fixedSegmentIndex == 0) {
+      // First segment is fixed so unfix it.
+      unfixedSegmentIndex = 0;
+      TentacleSegment firstSegment = segments.get(0);
+      firstSegment.isFixed = false;
+    } else {
+      // The last unfixed segment before the first fixed segment.
+      unfixedSegmentIndex = fixedSegmentIndex - 1;
+    }
+
+    // Change segments to unfixed until there is enough tentacle length to
+    // cover the distance to the tentacle base.
+    int ikStartIndex;
+    for (ikStartIndex = unfixedSegmentIndex; ikStartIndex < segments.size() - 1; ikStartIndex++) {
+      TentacleSegment segment = segments.get(ikStartIndex);
+      float distToTarget = segment.endpoint().mag();
+      float availableLength = getLengthBetweenIncl(0, ikStartIndex);
+
+      segment.isFixed = false;
+
+      if (availableLength >= distToTarget) {
+        break;
+      }
+    }
+
+    // IK
+    // TODO: Improve iteration. I.e., check error value and break early.
+    for (int iteration = 0; iteration < 20; iteration++) {
+      PVector base = new PVector();
+      for (int i = 0; i <= ikStartIndex; i++) {
+        PVector target;
+        if (i > 0) {
+          TentacleSegment prevSegment = segments.get(i - 1);
+          target = prevSegment.endpoint();
+        } else {
+          target = new PVector();
+        }
+
+        TentacleSegment segment = segments.get(i);
+        PVector targetToEndpoint = PVector.sub(segment.endpoint(), target);
+        segment.angle(targetToEndpoint.heading());
+        segment.pivot(target);
+        segment.updateEndpoint();
+      }
+    }
+
+    updateSegmentPivotsAndEndpoints(0);
+  }
+
+  private int getFirstFixedSegmentIndex() {
+    for (int i = 0; i < segments.size(); i++) {
+      TentacleSegment segment = segments.get(i);
+      if (segment.isFixed) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  // Includes the length of both the specified segments.
+  private float getLengthBetweenIncl(int startSegmentIndex, int endSegmentIndex) {
+    float total = 0;
+    for (int i = startSegmentIndex; i <= endSegmentIndex; i++) {
+      TentacleSegment segment = segments.get(i);
+      total += segment.length();
+    }
+    return total;
+  }
+
   public void step(int count) {
     for (int i = 0; i < count; i++) {
       step();
