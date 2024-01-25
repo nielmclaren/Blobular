@@ -52,6 +52,7 @@ void draw() {
   square(0, 0, 10);
 
   drawSegments();
+  drawDistToFixedSegment();
 
   popMatrix();
   
@@ -72,7 +73,12 @@ void drawSegments() {
     TentacleSegment segment = segments.get(i);
   
     strokeWeight(2);
-    stroke(Palette.base[1]);
+    if (segment.isFixed) {
+      stroke(Palette.base[3]);
+    } else {
+      stroke(Palette.base[1]);
+    }
+
     line(segment.pivotX(), segment.pivotY(), segment.endpointX(), segment.endpointY());
   }
 
@@ -91,7 +97,48 @@ void drawSegments() {
     
     circle(segment.endpointX(), segment.endpointY(), 9);
   }
-} 
+
+  // Draw labels
+  float totalLength = 0;
+  for (int i = 0; i < segments.size(); i++) {
+    TentacleSegment segment = segments.get(i);
+    totalLength += segment.length();
+
+    pushMatrix();
+    translate(segment.endpointX(), segment.endpointY());
+    rotate(radians(45));
+
+    pushStyle();
+    fill(64);
+    textSize(12);
+
+    text("" + round(totalLength), 10, 4);
+
+    popStyle();
+    popMatrix();
+  }
+}
+
+void drawDistToFixedSegment() {
+  List<TentacleSegment> segments = tentacle.segments();
+  for (int i = 0; i < segments.size(); i++) {
+    TentacleSegment segment = segments.get(i);
+    if (segment.isFixed) {
+      pushStyle();
+      strokeWeight(1);
+      stroke(128);
+      line(0, 0, segment.endpointX(), segment.endpointY());
+      fill(64);
+      textSize(12);
+      textAlign(CENTER);
+      PVector p = segment.endpoint();
+      p.mult(0.5);
+      text("" + round(segment.endpoint().mag()), p.x, p.y);
+      popStyle();
+      break;
+    }
+  }
+}
 
 float normalizeAngle(float v) {
   while (v < 0) {

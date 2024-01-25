@@ -12,6 +12,7 @@ public class TentacleSegment {
   // Constrain how quickly the angle can change.
   public float maxAngleDelta;
   
+  // Indicate whether this segment's endpoint is fixed.
   public boolean isFixed;
   
   TentacleSegment(float lengthArg, float angleArg, float maxAngleDeltaArg) {

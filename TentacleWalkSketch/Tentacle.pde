@@ -19,7 +19,7 @@ public class Tentacle {
     PVector currPos = new PVector();
     
     for (int i = 0;  i < numSegments; i++) {
-      float segmentLength = map(i, 0, numSegments, baseSegmentLength, tipSegmentLength);
+      float segmentLength = map(i, 0, numSegments - 1, baseSegmentLength, tipSegmentLength);
       TentacleSegment segment = new TentacleSegment(
         segmentLength,
         baseAngle + radians(30) * i,
@@ -56,43 +56,19 @@ public class Tentacle {
   }
 
   private void ikToShiftedBase() {
-    // The segments from the base up to but not including the first fixed segment
-    // will be able to move toward the new base via ik.
-    int fixedSegmentIndex = getFirstFixedSegmentIndex();
-    int unfixedSegmentIndex;
-    if (fixedSegmentIndex < 0) {
-      // No segments are fixed so they can all move toward the new base.
-      unfixedSegmentIndex = segments.size() - 1;
-    } else if (fixedSegmentIndex == 0) {
-      // First segment is fixed so unfix it.
-      unfixedSegmentIndex = 0;
-      TentacleSegment firstSegment = segments.get(0);
-      firstSegment.isFixed = false;
-    } else {
-      // The last unfixed segment before the first fixed segment.
-      unfixedSegmentIndex = fixedSegmentIndex - 1;
-    }
+    int ikStartIndex = getIkStartIndex();
+    int firstFixedSegmentIndex = ikStartIndex + 1;
+    PVector firstFixedSegmentEndpoint = firstFixedSegmentIndex < segments.size() ? segments.get(firstFixedSegmentIndex).endpoint() : null;
 
-    // Change segments to unfixed until there is enough tentacle length to
-    // cover the distance to the tentacle base.
-    int ikStartIndex;
-    for (ikStartIndex = unfixedSegmentIndex; ikStartIndex < segments.size() - 1; ikStartIndex++) {
-      TentacleSegment segment = segments.get(ikStartIndex);
-      float distToTarget = segment.endpoint().mag();
-      float availableLength = getLengthBetweenIncl(0, ikStartIndex);
-
-      segment.isFixed = false;
-
-      if (availableLength >= distToTarget) {
-        break;
-      }
-    }
+    // `getIkStartIndex()` may include some fixed segments so set them all to unfixed.
+    setSegmentsIsFixed(0, min(firstFixedSegmentIndex, segments.size()), false);
 
     // IK
     // TODO: Improve iteration. I.e., check error value and break early.
     for (int iteration = 0; iteration < 20; iteration++) {
+
       PVector base = new PVector();
-      for (int i = 0; i <= ikStartIndex; i++) {
+      for (int i = 0; i <= min(firstFixedSegmentIndex, segments.size() - 1); i++) {
         PVector target;
         if (i > 0) {
           TentacleSegment prevSegment = segments.get(i - 1);
@@ -107,9 +83,57 @@ public class Tentacle {
         segment.pivot(target);
         segment.updateEndpoint();
       }
+
     }
 
-    updateSegmentPivotsAndEndpoints(0);
+    if (firstFixedSegmentIndex < segments.size()) {
+      // Put the first fixed segment's endpoint back to where it started.
+      TentacleSegment firstFixedSegment = segments.get(firstFixedSegmentIndex);
+      firstFixedSegment.endpoint(firstFixedSegmentEndpoint);
+      firstFixedSegment.updatePivot();
+
+      updateSegmentPointsTipToBase(firstFixedSegmentIndex, 0);
+    }
+  }
+
+  private int getIkStartIndex() {
+    // The segments from the base up to but not including the first fixed segment
+    // will be able to move toward the new base via ik.
+    int fixedSegmentIndex = getFirstFixedSegmentIndex();
+    int unfixedSegmentIndex;
+    if (fixedSegmentIndex < 0) {
+      // No segments are fixed so they can all move toward the new base.
+      return segments.size() - 1;
+    } else if (fixedSegmentIndex == 0) {
+      // First segment is fixed so start from there.
+      unfixedSegmentIndex = 0;
+    } else {
+      // The last unfixed segment before the first fixed segment.
+      unfixedSegmentIndex = fixedSegmentIndex - 1;
+    }
+
+    // Keep adding segments until there is enough tentacle length to
+    // cover the distance to the tentacle base.
+    int ikStartIndex;
+    for (ikStartIndex = unfixedSegmentIndex; ikStartIndex < segments.size() - 1; ikStartIndex++) {
+      TentacleSegment segment = segments.get(ikStartIndex);
+      TentacleSegment nextSegment = segments.get(ikStartIndex + 1);
+      float distToTarget = nextSegment.endpoint().mag();
+      float availableLength = getLengthBetweenIncl(0, ikStartIndex + 1);
+
+      if (availableLength >= distToTarget) {
+        break;
+      }
+    }
+
+    return ikStartIndex;
+  }
+
+  private void setSegmentsIsFixed(int startIndex, int endIndex, boolean v) {
+    for (int i = startIndex; i < endIndex; i++) {
+      TentacleSegment segment = segments.get(i);
+      segment.isFixed = v;
+    }
   }
 
   private int getFirstFixedSegmentIndex() {
@@ -190,7 +214,6 @@ public class Tentacle {
   private boolean handleCollisions(TentacleSegment segment, float prevRotation, int angleSign, float angleDelta) {
     // FIXME: Assumes segment was not originally in a collided state.
     if (detectCollision(segment)) {
-      println("handling collision");
       segment.isFixed = true;
 
       // Rotate 1° at a time until collision detected.
@@ -227,16 +250,57 @@ public class Tentacle {
     return tentacleY + segment.endpointY() > surfaceY;
   }
 
-  private void updateSegmentPivotsAndEndpoints(int startSegmentIndex) {
-    for (int i = startSegmentIndex; i < segments.size(); i++) {
+  /**
+   * Starting at the base and working toward the tip, update each
+   * segment's pivot to match the previous segment's endpoint.
+   */
+  private void updateSegmentPointsBaseToTip() {
+    updateSegmentPointsBaseToTip(0, segments.size());
+  }
+
+  // Not including the segment at endIndex.
+  private void updateSegmentPointsBaseToTip(int startIndex, int endIndex) {
+    assert(startIndex >= 0);
+    assert(endIndex <= segments.size());
+    assert(startIndex < endIndex);
+
+    for (int i = startIndex; i < endIndex; i++) {
       TentacleSegment segment = segments.get(i);
       if (i > 0) {
+        // `prevSegment` is the adjacent segment closer to the base.
         TentacleSegment prevSegment = segments.get(i - 1);
         segment.pivot(prevSegment.endpoint());
       } else {
         segment.pivot(new PVector());
       }
       segment.updateEndpoint();
+    }
+  }
+
+  /**
+   * Starting at the tip and working toward the base, update each
+   * segment's endpoint to match the previous segment's pivot.
+   */
+  private void updateSegmentPointsTipToBase() {
+    // Doesn't update the segment at the tip because it has nothing to update to.
+    updateSegmentPointsTipToBase(segments.size() - 1, 0);
+  }
+
+  // Not including the segment at startIndex.
+  private void updateSegmentPointsTipToBase(int startIndex, int endIndex) {
+    // Never update the segment at the tip because it has nothing to update to.
+    assert(startIndex < segments.size());
+    assert(endIndex >= 0);
+    assert(startIndex > endIndex);
+
+    for (int i = startIndex - 1; i >= endIndex; i--) {
+      TentacleSegment segment = segments.get(i);
+      if (i < segments.size() - 1) {
+        // `prevSegment` is the adjacent segment closer to the tip.
+        TentacleSegment prevSegment = segments.get(i + 1);
+        segment.endpoint(prevSegment.pivot());
+      }
+      segment.updatePivot();
     }
   }
 
