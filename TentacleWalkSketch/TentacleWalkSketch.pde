@@ -11,6 +11,8 @@ float tentacleY;
 PVector currTargetDirection;
 float surfaceY;
 
+PlayerInput playerInput;
+
 FileNamer folderNamer;
 FileNamer fileNamer;
 
@@ -20,11 +22,13 @@ void setup() {
 
   tentacle = new Tentacle();
   
-  tentacleX = width/2;
+  tentacleX = width/3;
   tentacleY = height/2;
   
   currTargetDirection = null;
   surfaceY = height * 0.75;
+
+  playerInput = new PlayerInput(this);
   
   folderNamer = new FileNamer("screenies/build", "/");
   fileNamer = new FileNamer(folderNamer.next() + "frame", "gif");
@@ -32,6 +36,8 @@ void setup() {
 
 void draw() {
   //tentacle.step();
+
+  handlePlayerMovement();
 
   background(Palette.light[2]);
   
@@ -64,6 +70,34 @@ void draw() {
     line(mouseReleaseX - offset, mouseReleaseY - offset, mouseReleaseX + offset, mouseReleaseY + offset);
     line(mouseReleaseX + offset, mouseReleaseY - offset, mouseReleaseX - offset, mouseReleaseY + offset);
   }
+}
+
+void handlePlayerMovement() {
+  float speed = 5;
+
+  int x = 0;
+  int y = 0;
+  
+  if (playerInput.isKeyDown('a')) {
+    x -= 1;
+  }
+  if (playerInput.isKeyDown('d')) {
+    x += 1;
+  }
+  if (playerInput.isKeyDown('s')) {
+    y += 1;
+  }
+  if (playerInput.isKeyDown('w')) {
+    y -= 1;
+  }
+
+  PVector velocity = new PVector(x, y);
+  velocity.normalize();
+  velocity.mult(speed);
+
+  tentacle.shiftBase(velocity.x, velocity.y);
+  tentacleX += velocity.x;
+  tentacleY += velocity.y;
 }
 
 void drawSegments() {
@@ -150,24 +184,13 @@ float normalizeAngle(float v) {
   return v;
 }
 
+void keyPressed() {
+  playerInput.keyPressed(key);
+}
+
 void keyReleased() {
+  playerInput.keyReleased(key);
   switch (key) {
-    case 'a':
-      tentacle.shiftBase(-10, 0);
-      tentacleX -= 10;
-      break;
-    case 'd':
-      tentacle.shiftBase(10, 0);
-      tentacleX += 10;
-      break;
-    case 'w':
-      tentacle.shiftBase(0, -10);
-      tentacleY -= 10;
-      break;
-    case 's':
-      tentacle.shiftBase(0, 10);
-      tentacleY += 10;
-      break;
     case ' ':
       tentacle.step(1);
       break;
