@@ -22,4 +22,23 @@ class PlayerInput {
     String keyString = String.valueOf(key);
     return isKeyDownMap.containsKey(keyString) && isKeyDownMap.get(keyString);
   }
+
+  public void loadInputDirection(PVector inputDirection) {
+    inputDirection.set(0, 0);
+    
+    if (isKeyDown('w')) {
+      inputDirection.y -= 1;
+    }
+    if (isKeyDown('a')) {
+      inputDirection.x -= 1;
+    }
+    if (isKeyDown('d')) {
+      inputDirection.x += 1;
+    }
+    if (isKeyDown('s')) {
+      inputDirection.y += 1;
+    }
+
+    inputDirection.normalize();
+  }
 }

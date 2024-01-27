@@ -8,6 +8,8 @@ float mouseReleaseY;
 float tentacleX;
 float tentacleY;
 
+PVector velocity;
+
 PVector currTargetDirection;
 float surfaceY;
 
@@ -25,6 +27,8 @@ void setup() {
   tentacleX = width/3;
   tentacleY = height/2;
   
+  velocity = new PVector();
+
   currTargetDirection = null;
   surfaceY = height * 0.75;
 
@@ -73,26 +77,9 @@ void draw() {
 }
 
 void handlePlayerMovement() {
-  float speed = 5;
+  float speed = 3;
 
-  int x = 0;
-  int y = 0;
-  
-  if (playerInput.isKeyDown('a')) {
-    x -= 1;
-  }
-  if (playerInput.isKeyDown('d')) {
-    x += 1;
-  }
-  if (playerInput.isKeyDown('s')) {
-    y += 1;
-  }
-  if (playerInput.isKeyDown('w')) {
-    y -= 1;
-  }
-
-  PVector velocity = new PVector(x, y);
-  velocity.normalize();
+  playerInput.loadInputDirection(velocity);
   velocity.mult(speed);
 
   tentacle.shiftBase(velocity.x, velocity.y);
