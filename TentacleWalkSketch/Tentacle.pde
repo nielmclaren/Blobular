@@ -63,27 +63,9 @@ public class Tentacle {
     // `getIkStartIndex()` may include some fixed segments so set them all to unfixed.
     setSegmentsIsFixed(0, min(firstFixedSegmentIndex, segments.size()), false);
 
-    // IK
     // TODO: Improve iteration. I.e., check error value and break early.
     for (int iteration = 0; iteration < 20; iteration++) {
-
-      PVector base = new PVector();
-      for (int i = 0; i <= min(firstFixedSegmentIndex, segments.size() - 1); i++) {
-        PVector target;
-        if (i > 0) {
-          TentacleSegment prevSegment = segments.get(i - 1);
-          target = prevSegment.endpoint();
-        } else {
-          target = new PVector();
-        }
-
-        TentacleSegment segment = segments.get(i);
-        PVector targetToEndpoint = PVector.sub(segment.endpoint(), target);
-        segment.angle(targetToEndpoint.heading());
-        segment.pivot(target);
-        segment.updateEndpoint();
-      }
-
+      simpleIk(0, min(firstFixedSegmentIndex, segments.size() - 1));
     }
 
     if (firstFixedSegmentIndex < segments.size()) {
@@ -154,6 +136,29 @@ public class Tentacle {
       total += segment.length();
     }
     return total;
+  }
+
+  // Includes `startIndex` and `endIndex`.
+  private void simpleIk(int startIndex, int endIndex) {
+    assert(startIndex >= 0);
+    assert(endIndex < segments.size());
+    assert(startIndex < endIndex);
+
+    for (int i = startIndex; i <= endIndex; i++) {
+      PVector target;
+      if (i <= 0) {
+        target = new PVector();
+      } else {
+        TentacleSegment prevSegment = segments.get(i - 1);
+        target = prevSegment.endpoint();
+      }
+
+      TentacleSegment segment = segments.get(i);
+      PVector targetToEndpoint = PVector.sub(segment.endpoint(), target);
+      segment.angle(targetToEndpoint.heading());
+      segment.pivot(target);
+      segment.updateEndpoint();
+    }
   }
 
   public void step(int count) {
