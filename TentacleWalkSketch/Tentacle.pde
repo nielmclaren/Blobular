@@ -350,4 +350,12 @@ public class Tentacle {
       println("No way to not collide!");
     }
   }
+
+  private int getRotationSign(PVector sourceVector, PVector targetVector) {
+    if (sourceVector.y * targetVector.x > sourceVector.x * targetVector.y) {
+      return RotationDirection.COUNTERCLOCKWISE;
+    } else {
+      return RotationDirection.CLOCKWISE;
+    }
+  }
 }

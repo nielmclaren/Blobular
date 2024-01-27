@@ -23,6 +23,9 @@ void setup() {
   background(255);
 
   tentacle = new Tentacle();
+
+  mouseReleaseX = -1;
+  mouseReleaseY = -1;
   
   tentacleX = width/3;
   tentacleY = height/2;
@@ -70,6 +73,7 @@ void draw() {
     noFill();
     stroke(Palette.base[3]);
     strokeWeight(2);
+
     float offset = 5;
     line(mouseReleaseX - offset, mouseReleaseY - offset, mouseReleaseX + offset, mouseReleaseY + offset);
     line(mouseReleaseX + offset, mouseReleaseY - offset, mouseReleaseX - offset, mouseReleaseY + offset);
@@ -147,9 +151,9 @@ void drawDistToFixedSegment() {
     if (segment.isFixed) {
       pushStyle();
       strokeWeight(1);
-      stroke(128);
+      stroke(192);
       line(0, 0, segment.endpointX(), segment.endpointY());
-      fill(64);
+      fill(192);
       textSize(12);
       textAlign(CENTER);
       PVector p = segment.endpoint();
@@ -159,16 +163,6 @@ void drawDistToFixedSegment() {
       break;
     }
   }
-}
-
-float normalizeAngle(float v) {
-  while (v < 0) {
-    v += TAU;
-  }
-  while (v > TAU) {
-    v -= TAU;
-  }
-  return v;
 }
 
 void keyPressed() {
@@ -192,12 +186,4 @@ void mouseReleased() {
   mouseReleaseY = mouseY;
 
   tentacle.pointTo(new PVector(mouseX - tentacleX, mouseY - tentacleY));
-}
-
-int getRotationSign(PVector sourceVector, PVector targetVector) {
-  if (sourceVector.y * targetVector.x > sourceVector.x * targetVector.y) {
-    return RotationDirection.COUNTERCLOCKWISE;
-  } else {
-    return RotationDirection.CLOCKWISE;
-  }
 }
