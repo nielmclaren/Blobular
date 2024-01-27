@@ -67,7 +67,7 @@ public class Tentacle {
 
     // TODO: Improve iteration. I.e., check error value and break early.
     for (int iteration = 0; iteration < 20; iteration++) {
-      cyclicCoordinateDescentIk(0, min(firstFixedSegmentIndex, segments.size() - 1));
+      simpleIk(0, min(firstFixedSegmentIndex, segments.size() - 1));
     }
 
     if (firstFixedSegmentIndex < segments.size()) {
@@ -77,9 +77,6 @@ public class Tentacle {
       firstFixedSegment.updatePivot();
 
       updateSegmentPointsTipToBase(firstFixedSegmentIndex, 0);
-    } else {
-      // Only for cyclic coordinate descent, move segments so the base is at the origin.
-      updateSegmentPointsBaseToTip(0, segments.size());
     }
   }
 
@@ -171,39 +168,6 @@ public class Tentacle {
       segment.pivot(target);
 
       segment.updateEndpoint();
-    }
-  }
-
-  // Rotate segments to move the first segment's pivot (the tentacle base) to the origin.
-  // Includes `startIndex` and `endIndex`.
-  private void cyclicCoordinateDescentIk(int startIndex, int endIndex) {
-    assert(startIndex >= 0);
-    assert(endIndex < segments.size());
-    assert(startIndex < endIndex);
-
-    PVector target = new PVector();
-
-    TentacleSegment firstSegment = segments.get(0);
-    for (int i = startIndex; i <= endIndex; i++) {
-      TentacleSegment segment = segments.get(i);
-      
-      PVector pivotToBase = PVector.sub(firstSegment.pivot(), segment.endpoint());
-      PVector pivotToTarget = PVector.sub(target, segment.endpoint());
-      
-      float angleDelta = PVector.angleBetween(pivotToBase, pivotToTarget);
-      
-      float sign = 0;
-      if (pivotToBase.y * pivotToTarget.x > pivotToBase.x * pivotToTarget.y) {
-        sign = RotationDirection.COUNTERCLOCKWISE;
-      } else {
-        sign = RotationDirection.CLOCKWISE;
-      }
-      segment.angle += sign * angleDelta;
-      segment.updatePivot();
-      
-      if (i > 0) {
-        updateSegmentPointsTipToBase(i, 0);
-      }
     }
   }
 
