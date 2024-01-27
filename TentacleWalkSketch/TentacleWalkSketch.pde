@@ -42,8 +42,6 @@ void setup() {
 }
 
 void draw() {
-  //tentacle.step();
-
   handlePlayerMovement();
 
   background(Palette.light[2]);
@@ -86,7 +84,7 @@ void handlePlayerMovement() {
   playerInput.loadInputDirection(velocity);
   velocity.mult(speed);
 
-  tentacle.shiftBase(velocity.x, velocity.y);
+  tentacle.move(velocity.x, velocity.y);
   tentacleX += velocity.x;
   tentacleY += velocity.y;
 }

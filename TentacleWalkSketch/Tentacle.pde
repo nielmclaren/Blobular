@@ -1,4 +1,6 @@
 
+// The tentacle origin is at 0, 0. The tentacle is base is the position of the first
+// segment's pivot, which may or may not match the tentacle origin.
 public class Tentacle {
   protected List<TentacleSegment> segments;
   protected List<TentacleInstruction> instructions;
@@ -46,16 +48,16 @@ public class Tentacle {
     instructions.add(instruction);
   }
 
-  public void shiftBase(float x, float y) {
+  public void move(float x, float y) {
     // Shift all segments in the opposite direction.
     for (TentacleSegment segment : segments) {
       segment.shift(-x, -y);
     }
 
-    ikToShiftedBase();
+    ikBaseToShiftedOrigin();
   }
 
-  private void ikToShiftedBase() {
+  private void ikBaseToShiftedOrigin() {
     int ikStartIndex = getIkStartIndex();
     int firstFixedSegmentIndex = ikStartIndex + 1;
     PVector firstFixedSegmentEndpoint = firstFixedSegmentIndex < segments.size() ? segments.get(firstFixedSegmentIndex).endpoint() : null;
@@ -65,7 +67,7 @@ public class Tentacle {
 
     // TODO: Improve iteration. I.e., check error value and break early.
     for (int iteration = 0; iteration < 20; iteration++) {
-      simpleIk(0, min(firstFixedSegmentIndex, segments.size() - 1));
+      cyclicCoordinateDescentIk(0, min(firstFixedSegmentIndex, segments.size() - 1));
     }
 
     if (firstFixedSegmentIndex < segments.size()) {
@@ -75,6 +77,9 @@ public class Tentacle {
       firstFixedSegment.updatePivot();
 
       updateSegmentPointsTipToBase(firstFixedSegmentIndex, 0);
+    } else {
+      // Only for cyclic coordinate descent, move segments so the base is at the origin.
+      updateSegmentPointsBaseToTip(0, segments.size());
     }
   }
 
@@ -84,7 +89,7 @@ public class Tentacle {
     int fixedSegmentIndex = getFirstFixedSegmentIndex();
     int unfixedSegmentIndex;
     if (fixedSegmentIndex < 0) {
-      // No segments are fixed so they can all move toward the new base.
+      // No segments are fixed so they can all move toward the new origin.
       return segments.size() - 1;
     } else if (fixedSegmentIndex == 0) {
       // First segment is fixed so start from there.
@@ -95,7 +100,7 @@ public class Tentacle {
     }
 
     // Keep adding segments until there is enough tentacle length to
-    // cover the distance to the tentacle base.
+    // cover the distance to the tentacle origin.
     int ikStartIndex;
     for (ikStartIndex = unfixedSegmentIndex; ikStartIndex < segments.size() - 1; ikStartIndex++) {
       TentacleSegment segment = segments.get(ikStartIndex);
@@ -138,6 +143,7 @@ public class Tentacle {
     return total;
   }
 
+  // Rotate segments to move the first segment's pivot (the tentacle base) to the origin.
   // Includes `startIndex` and `endIndex`.
   private void simpleIk(int startIndex, int endIndex) {
     assert(startIndex >= 0);
@@ -147,6 +153,7 @@ public class Tentacle {
     for (int i = startIndex; i <= endIndex; i++) {
       PVector target;
       if (i <= 0) {
+        // The first segment's target is the origin.
         target = new PVector();
       } else {
         TentacleSegment prevSegment = segments.get(i - 1);
@@ -155,9 +162,48 @@ public class Tentacle {
 
       TentacleSegment segment = segments.get(i);
       PVector targetToEndpoint = PVector.sub(segment.endpoint(), target);
+
+      // Rotate the current segment to point its pivot at the previous segment's endpoint.
+      // (Because we're going tip to base, the segment points away from the previous segment's endpoint.)
       segment.angle(targetToEndpoint.heading());
+
+      // Move thecurrent segment so that its pivot is at the previous segment's endpoint.
       segment.pivot(target);
+
       segment.updateEndpoint();
+    }
+  }
+
+  // Rotate segments to move the first segment's pivot (the tentacle base) to the origin.
+  // Includes `startIndex` and `endIndex`.
+  private void cyclicCoordinateDescentIk(int startIndex, int endIndex) {
+    assert(startIndex >= 0);
+    assert(endIndex < segments.size());
+    assert(startIndex < endIndex);
+
+    PVector target = new PVector();
+
+    TentacleSegment firstSegment = segments.get(0);
+    for (int i = startIndex; i <= endIndex; i++) {
+      TentacleSegment segment = segments.get(i);
+      
+      PVector pivotToBase = PVector.sub(firstSegment.pivot(), segment.endpoint());
+      PVector pivotToTarget = PVector.sub(target, segment.endpoint());
+      
+      float angleDelta = PVector.angleBetween(pivotToBase, pivotToTarget);
+      
+      float sign = 0;
+      if (pivotToBase.y * pivotToTarget.x > pivotToBase.x * pivotToTarget.y) {
+        sign = RotationDirection.COUNTERCLOCKWISE;
+      } else {
+        sign = RotationDirection.CLOCKWISE;
+      }
+      segment.angle += sign * angleDelta;
+      segment.updatePivot();
+      
+      if (i > 0) {
+        updateSegmentPointsTipToBase(i, 0);
+      }
     }
   }
 
@@ -276,6 +322,7 @@ public class Tentacle {
         TentacleSegment prevSegment = segments.get(i - 1);
         segment.pivot(prevSegment.endpoint());
       } else {
+        // The first segment's pivot is set to the tentacle origin.
         segment.pivot(new PVector());
       }
       segment.updateEndpoint();
