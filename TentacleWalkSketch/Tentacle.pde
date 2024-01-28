@@ -262,7 +262,8 @@ public class Tentacle {
   }
 
   private boolean detectCollision(TentacleSegment segment) {
-    return tentacleY + segment.endpointY() > surfaceY;
+    // TODO: What's a good way to structure the code for collision detection?
+    return position.y + segment.endpointY() > surfaceY;
   }
 
   /**

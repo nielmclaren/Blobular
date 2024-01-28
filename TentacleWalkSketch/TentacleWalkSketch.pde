@@ -5,9 +5,8 @@ Tentacle tentacle;
 float mouseReleaseX;
 float mouseReleaseY;
 
-float tentacleX;
-float tentacleY;
-
+final float playerSpeed = 3;
+PVector position;
 PVector velocity;
 
 PVector currTargetDirection;
@@ -27,9 +26,7 @@ void setup() {
   mouseReleaseX = -1;
   mouseReleaseY = -1;
   
-  tentacleX = width/3;
-  tentacleY = height/2;
-  
+  position = new PVector(width/3, height/2); 
   velocity = new PVector();
 
   currTargetDirection = null;
@@ -45,16 +42,11 @@ void draw() {
   handlePlayerMovement();
 
   background(Palette.light[2]);
-  
-  noStroke();
-  fill(Palette.light[4]);
-  rectMode(CORNERS);
-  rect(0, surfaceY, width, height);
-  stroke(Palette.base[3]);
-  line(0, surfaceY, width, surfaceY);
+
+  drawGround();
   
   pushMatrix();
-  translate(tentacleX, tentacleY);
+  translate(position.x, position.y);
   
   noFill();
   stroke(Palette.base[1]);
@@ -63,7 +55,6 @@ void draw() {
   square(0, 0, 10);
 
   drawSegments();
-  drawDistToFixedSegment();
 
   popMatrix();
   
@@ -79,17 +70,29 @@ void draw() {
 }
 
 void handlePlayerMovement() {
-  float speed = 3;
-
   playerInput.loadInputDirection(velocity);
-  velocity.mult(speed);
+  velocity.mult(playerSpeed);
 
   tentacle.move(velocity.x, velocity.y);
-  tentacleX += velocity.x;
-  tentacleY += velocity.y;
+  position.add(velocity);
+}
+
+void drawGround() {
+  pushStyle();
+  
+  noStroke();
+  fill(Palette.light[4]);
+  rectMode(CORNERS);
+  rect(0, surfaceY, width, height);
+  stroke(Palette.base[3]);
+  line(0, surfaceY, width, surfaceY);
+
+  popStyle();
 }
 
 void drawSegments() {
+  pushStyle();
+
   // Draw the line first.
   List<TentacleSegment> segments = tentacle.segments();
   for (int i = 0; i < segments.size(); i++) {
@@ -121,46 +124,7 @@ void drawSegments() {
     circle(segment.endpointX(), segment.endpointY(), 9);
   }
 
-  // Draw labels
-  float totalLength = 0;
-  for (int i = 0; i < segments.size(); i++) {
-    TentacleSegment segment = segments.get(i);
-    totalLength += segment.length();
-
-    pushMatrix();
-    translate(segment.endpointX(), segment.endpointY());
-    rotate(radians(45));
-
-    pushStyle();
-    fill(64);
-    textSize(12);
-
-    text("" + round(totalLength), 10, 4);
-
-    popStyle();
-    popMatrix();
-  }
-}
-
-void drawDistToFixedSegment() {
-  List<TentacleSegment> segments = tentacle.segments();
-  for (int i = 0; i < segments.size(); i++) {
-    TentacleSegment segment = segments.get(i);
-    if (segment.isFixed) {
-      pushStyle();
-      strokeWeight(1);
-      stroke(192);
-      line(0, 0, segment.endpointX(), segment.endpointY());
-      fill(192);
-      textSize(12);
-      textAlign(CENTER);
-      PVector p = segment.endpoint();
-      p.mult(0.5);
-      text("" + round(segment.endpoint().mag()), p.x, p.y);
-      popStyle();
-      break;
-    }
-  }
+  popStyle();
 }
 
 void keyPressed() {
@@ -183,5 +147,5 @@ void mouseReleased() {
   mouseReleaseX = mouseX;
   mouseReleaseY = mouseY;
 
-  tentacle.pointTo(new PVector(mouseX - tentacleX, mouseY - tentacleY));
+  tentacle.pointTo(new PVector(mouseX - position.x, mouseY - position.y));
 }
