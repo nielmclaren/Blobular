@@ -13,9 +13,9 @@ public class Tentacle {
   }
 
   private void initSegments() {
-    float baseSegmentLength = 60;
-    float tipSegmentLength = 10;
-    float baseAngle = radians(90);
+    float baseSegmentLength = 40;
+    float tipSegmentLength = 20;
+    float baseAngle = radians(160);
     int numSegments = 8;
 
     PVector currPos = new PVector();
@@ -24,8 +24,8 @@ public class Tentacle {
       float segmentLength = map(i, 0, numSegments - 1, baseSegmentLength, tipSegmentLength);
       TentacleSegment segment = new TentacleSegment(
         segmentLength,
-        baseAngle + radians(30) * i,
-        radians(20));
+        baseAngle + radians(3) * i,
+        radians(5));
 
       segment.pivot(currPos);
       currPos.add(segment.getVector());

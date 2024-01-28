@@ -18,7 +18,7 @@ FileNamer folderNamer;
 FileNamer fileNamer;
 
 void setup() {
-  size(640, 640, P2D);
+  size(1280, 640, P2D);
   background(255);
 
   tentacle = new Tentacle();
@@ -26,7 +26,7 @@ void setup() {
   mouseReleaseX = -1;
   mouseReleaseY = -1;
   
-  position = new PVector(width/3, height/2); 
+  position = new PVector(100, height * 0.75 - 80); 
   velocity = new PVector();
 
   currTargetDirection = null;
@@ -39,6 +39,7 @@ void setup() {
 }
 
 void draw() {
+  handleStep();
   handlePlayerMovement();
 
   background(Palette.light[2]);
@@ -66,6 +67,12 @@ void draw() {
     float offset = 5;
     line(mouseReleaseX - offset, mouseReleaseY - offset, mouseReleaseX + offset, mouseReleaseY + offset);
     line(mouseReleaseX + offset, mouseReleaseY - offset, mouseReleaseX - offset, mouseReleaseY + offset);
+  }
+}
+
+void handleStep() {
+  if (playerInput.isKeyDown(' ')) {
+    tentacle.step(1);
   }
 }
 
@@ -134,9 +141,6 @@ void keyPressed() {
 void keyReleased() {
   playerInput.keyReleased(key);
   switch (key) {
-    case ' ':
-      tentacle.step(1);
-      break;
     case 't':
       save(fileNamer.next());
       break;
