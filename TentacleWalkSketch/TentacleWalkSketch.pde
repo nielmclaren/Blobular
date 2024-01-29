@@ -16,6 +16,7 @@ PlayerInput playerInput;
 
 FileNamer folderNamer;
 FileNamer fileNamer;
+boolean isRecording;
 
 void setup() {
   size(1280, 640, P2D);
@@ -36,6 +37,7 @@ void setup() {
   
   folderNamer = new FileNamer("screenies/build", "/");
   fileNamer = new FileNamer(folderNamer.next() + "frame", "gif");
+  isRecording = false;
 }
 
 void draw() {
@@ -67,6 +69,10 @@ void draw() {
     float offset = 5;
     line(mouseReleaseX - offset, mouseReleaseY - offset, mouseReleaseX + offset, mouseReleaseY + offset);
     line(mouseReleaseX + offset, mouseReleaseY - offset, mouseReleaseX - offset, mouseReleaseY + offset);
+  }
+
+  if (isRecording && frameCount % 10 == 0) {
+    save(fileNamer.next());
   }
 }
 
@@ -143,6 +149,9 @@ void keyReleased() {
   switch (key) {
     case 't':
       save(fileNamer.next());
+      break;
+    case 'g':
+      isRecording = !isRecording;
       break;
   }
 }
