@@ -41,8 +41,6 @@ public class Tentacle {
   }
 
   public void pointTo(PVector direction) {
-    instructions.clear();
-
     TentacleInstruction instruction = new TentacleInstruction();
     instruction.targetDirection = direction;
     instructions.add(instruction);
@@ -178,7 +176,14 @@ public class Tentacle {
   }
 
   public void step() {
-    for (TentacleInstruction instruction : instructions) {
+    for (int instructionIndex = instructions.size() - 1; instructionIndex >= 0; instructionIndex--) {
+      TentacleInstruction instruction = instructions.get(instructionIndex);
+
+      if (instruction.isComplete) {
+        // It is possible to encounter completed instructions here because of `cancelOlderInstructions()`.
+        continue;
+      }
+
       TentacleSegment segment = segments.get(instruction.segmentIndex);
       PVector pivot = segment.pivot();
       PVector segmentVector = segment.getVector();
@@ -211,11 +216,22 @@ public class Tentacle {
         instruction.segmentIndex++;
         if (instruction.segmentIndex >= segments.size()) {
           instruction.isComplete = true;
+        } else {
+          cancelOlderInstructions(instructionIndex, instruction.segmentIndex);
         }
       }
     } 
 
     instructions.removeIf(instruction -> instruction.isComplete);
+  }
+
+  private void cancelOlderInstructions(int instructionIndex, int segmentIndex) {
+    for (int i = 0; i < instructionIndex; i++) {
+      TentacleInstruction instruction = instructions.get(i);
+      if (instruction.segmentIndex <= segmentIndex) {
+        instruction.isComplete = true;
+      }
+    }
   }
 
   public float length() {
