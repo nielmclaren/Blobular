@@ -71,15 +71,17 @@ void draw() {
     line(mouseReleaseX + offset, mouseReleaseY - offset, mouseReleaseX - offset, mouseReleaseY + offset);
   }
 
-  if (isRecording && frameCount % 10 == 0) {
+  if (isRecording && frameCount % 5 == 0) {
     save(fileNamer.next());
   }
 }
 
 void handleStep() {
-  if (playerInput.isKeyDown(' ')) {
-    tentacle.step(1);
+  if (!tentacle.hasInstruction() && !tentacle.hasFixedSegment()) {
+    tentacle.recoveryAndContact(new PVector(1, 0.2), new PVector(0.5, 1));
   }
+
+  tentacle.step(1);
 }
 
 void handlePlayerMovement() {

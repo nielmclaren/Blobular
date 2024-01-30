@@ -28,8 +28,9 @@ public class Tentacle {
         radians(5));
 
       segment.pivot(currPos);
+      segment.updateEndpoint();
+
       currPos.add(segment.getVector());
-      segment.endpoint(currPos);
 
       segments.add(segment);
     }
@@ -42,7 +43,17 @@ public class Tentacle {
 
   public void pointTo(PVector direction) {
     TentacleInstruction instruction = new TentacleInstruction();
-    instruction.targetDirection = direction;
+    instruction.targetDirection = direction.copy();
+    instruction.targetDirection.normalize();
+    instructions.add(instruction);
+  }
+
+  public void recoveryAndContact(PVector recoveryDirection, PVector contactDirection) {
+    TentacleInstruction instruction = new TentacleInstruction();
+    instruction.targetDirection = recoveryDirection.copy();
+    instruction.targetDirection.normalize();
+    instruction.contactTargetDirection = contactDirection.copy();
+    instruction.contactTargetDirection.normalize();
     instructions.add(instruction);
   }
 
@@ -53,6 +64,19 @@ public class Tentacle {
     }
 
     ikBaseToShiftedOrigin();
+  }
+
+  public boolean hasFixedSegment() {
+    for (TentacleSegment segment : segments) {
+      if (segment.isFixed) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public boolean hasInstruction() {
+    return instructions.size() > 0;
   }
 
   private void ikBaseToShiftedOrigin() {
@@ -176,53 +200,70 @@ public class Tentacle {
   }
 
   public void step() {
-    for (int instructionIndex = instructions.size() - 1; instructionIndex >= 0; instructionIndex--) {
-      TentacleInstruction instruction = instructions.get(instructionIndex);
+    for (int i = instructions.size() - 1; i >= 0; i--) {
+      TentacleInstruction instruction = instructions.get(i);
 
       if (instruction.isComplete) {
         // It is possible to encounter completed instructions here because of `cancelOlderInstructions()`.
         continue;
       }
 
-      TentacleSegment segment = segments.get(instruction.segmentIndex);
-      PVector pivot = segment.pivot();
-      PVector segmentVector = segment.getVector();
-      
-      float prevRotation = segment.angle();
-      float angleError = radians(0.5);
-      float angleDelta = min(PVector.angleBetween(segmentVector, instruction.targetDirection), segment.maxAngleDelta);
-      
-      int angleSign;
-      if (instruction.rotationDirection == 0) {
-        angleSign = getRotationSign(segmentVector, instruction.targetDirection);
-      } else {
-        angleSign = instruction.rotationDirection;
-      }
-      
-      segment.angle(segment.angle() + angleSign * angleDelta);
-      segment.updateEndpoint();
-      
-      boolean collided = handleCollisions(segment, prevRotation, angleSign, angleDelta);
-      if (collided) {
-        instruction.rotationDirection = angleSign;
-        segment.isFixed = true;
-      }
-      
-      dragRemainingSegments(instruction.segmentIndex + 1);
-      
-      // If this segment is in position then move onto next segment for the next iteration.
-      angleDelta = min(PVector.angleBetween(segment.getVector(), instruction.targetDirection), segment.maxAngleDelta);
-      if (collided || angleDelta <= angleError) {
-        instruction.segmentIndex++;
-        if (instruction.segmentIndex >= segments.size()) {
-          instruction.isComplete = true;
-        } else {
-          cancelOlderInstructions(instructionIndex, instruction.segmentIndex);
-        }
-      }
-    } 
+      evaluateInstructionAt(i);
+    }
 
     instructions.removeIf(instruction -> instruction.isComplete);
+  }
+
+  private void evaluateInstructionAt(int instructionIndex) {
+    TentacleInstruction instruction = instructions.get(instructionIndex);
+    TentacleSegment segment = segments.get(instruction.segmentIndex);
+    PVector pivot = segment.pivot();
+    PVector segmentVector = segment.getVector();
+    
+    float prevRotation = segment.angle();
+    float angleError = radians(0.5);
+    float angleDelta = min(PVector.angleBetween(segmentVector, instruction.targetDirection), segment.maxAngleDelta);
+    
+    int angleSign;
+    if (instruction.rotationDirection == 0) {
+      angleSign = getRotationSign(segmentVector, instruction.targetDirection);
+    } else {
+      angleSign = instruction.rotationDirection;
+    }
+    
+    segment.angle(segment.angle() + angleSign * angleDelta);
+    segment.updateEndpoint();
+    
+    boolean collided = handleCollisions(segment, prevRotation, angleSign, angleDelta);
+    if (collided) {
+      // Force remaining segments to rotate in the same direction as the segment that collided.
+      instruction.rotationDirection = angleSign;
+      segment.isFixed = true;
+    }
+    
+    dragRemainingSegments(instruction.segmentIndex + 1);
+    
+    // If this segment is in position then move onto next segment for the next iteration.
+    angleDelta = min(PVector.angleBetween(segment.getVector(), instruction.targetDirection), segment.maxAngleDelta);
+    if (collided || angleDelta <= angleError) {
+      instruction.segmentIndex++;
+      if (instruction.segmentIndex >= segments.size()) {
+        instruction.isComplete = true;
+      } else {
+        cancelOlderInstructions(instructionIndex, instruction.segmentIndex);
+        tryToTriggerContactInstruction(instruction);
+      }
+    }
+  }
+
+  private void tryToTriggerContactInstruction(TentacleInstruction originalInstruction) {
+    // When recovery instruction is more than halfway through, begin the contact instruction.
+    if (originalInstruction.contactTargetDirection != null && originalInstruction.segmentIndex > segments.size() / 2) {
+      TentacleInstruction instruction = new TentacleInstruction();
+      instruction.targetDirection = originalInstruction.contactTargetDirection.copy();
+      instruction.targetDirection.normalize();
+      instructions.add(instruction);
+    }
   }
 
   private void cancelOlderInstructions(int instructionIndex, int segmentIndex) {
