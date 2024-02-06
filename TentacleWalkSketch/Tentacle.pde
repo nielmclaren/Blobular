@@ -15,7 +15,7 @@ public class Tentacle {
   private void initSegments() {
     float baseSegmentLength = 40;
     float tipSegmentLength = 20;
-    float baseAngle = radians(160);
+    float baseAngle = radians(10);
     int numSegments = 8;
 
     PVector currPos = new PVector();
@@ -57,6 +57,13 @@ public class Tentacle {
     instructions.add(instruction);
   }
 
+  public void inchToward(PVector direction) {
+    InchTowardTentacleInstruction instruction = new InchTowardTentacleInstruction();
+    instruction.segmentIndex = segments.size() - 1;
+    instruction.direction = direction.copy();
+    instructions.add(instruction);
+  }
+
   public void move(float x, float y) {
     // Shift all segments in the opposite direction.
     for (TentacleSegment segment : segments) {
@@ -85,7 +92,7 @@ public class Tentacle {
     PVector firstFixedSegmentEndpoint = firstFixedSegmentIndex < segments.size() ? segments.get(firstFixedSegmentIndex).endpoint() : null;
 
     // `getIkStartIndex()` may include some fixed segments so set them all to unfixed.
-    setSegmentsIsFixed(0, min(firstFixedSegmentIndex, segments.size()), false);
+    setSegmentsIsFixed(0, min(firstFixedSegmentIndex, segments.size()), false, 0);
 
     // TODO: Improve iteration. I.e., check error value and break early.
     for (int iteration = 0; iteration < 20; iteration++) {
@@ -135,10 +142,11 @@ public class Tentacle {
     return ikStartIndex;
   }
 
-  private void setSegmentsIsFixed(int startIndex, int endIndex, boolean v) {
+  private void setSegmentsIsFixed(int startIndex, int endIndex, boolean v, int rotationDirection) {
     for (int i = startIndex; i < endIndex; i++) {
       TentacleSegment segment = segments.get(i);
       segment.isFixed = v;
+      segment.fixedRotationDirection = rotationDirection;
     }
   }
 
@@ -216,6 +224,11 @@ public class Tentacle {
 
   private void evaluateInstructionAt(int instructionIndex) {
     TentacleInstruction instruction = instructions.get(instructionIndex);
+    if (instruction instanceof InchTowardTentacleInstruction) {
+      evaluateInchTowardInstruction((InchTowardTentacleInstruction) instruction);
+      return;
+    }
+
     TentacleSegment segment = segments.get(instruction.segmentIndex);
     PVector pivot = segment.pivot();
     PVector segmentVector = segment.getVector();
@@ -253,6 +266,47 @@ public class Tentacle {
       } else {
         cancelOlderInstructions(instructionIndex, instruction.segmentIndex);
         tryToTriggerContactInstruction(instruction);
+      }
+    }
+  }
+
+  private void evaluateInchTowardInstruction(InchTowardTentacleInstruction instruction) {
+    float angleError = radians(0.5);
+
+    TentacleSegment segment = segments.get(instruction.segmentIndex);
+    TentacleSegment prevSegment = segments.get(instruction.segmentIndex - 1);
+
+    if (segment.fixedRotationDirection == 0) {
+      // This segment was never attached to a surface.
+      instruction.segmentIndex--;
+      if (instruction.segmentIndex <= 0) {
+        instruction.isComplete = true;
+      }
+      return;
+    }
+
+    segment.isFixed = false;
+    
+    // Rotate 90° away from the surface.
+    // TODO: Use the segment's original rotation when it was fixed to the surface instead of the
+    // prev segment's rotation. The prev segment might be attached at a different angle.
+    float targetAngle = prevSegment.angle() - segment.fixedRotationDirection * PI/2;
+    PVector targetVector = new PVector(1, 0);
+    targetVector.rotate(targetAngle);
+    float angleDelta = min(PVector.angleBetween(segment.getVector(), targetVector), segment.maxAngleDelta);
+
+    segment.angle(segment.angle() - segment.fixedRotationDirection * angleDelta);
+    segment.updateEndpoint();
+
+    dragRemainingSegments(instruction.segmentIndex + 1);
+
+    if (angleDelta <= angleError) {
+      // This information is no longer needed.
+      segment.fixedRotationDirection = 0;
+
+      instruction.segmentIndex--;
+      if (instruction.segmentIndex <= 0) {
+        instruction.isComplete = true;
       }
     }
   }

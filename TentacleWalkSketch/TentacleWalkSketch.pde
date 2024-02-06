@@ -11,6 +11,7 @@ PVector velocity;
 
 PVector currTargetDirection;
 float surfaceY;
+boolean isFirstRecoveryAndContact;
 
 PlayerInput playerInput;
 
@@ -19,7 +20,7 @@ FileNamer fileNamer;
 boolean isRecording;
 
 void setup() {
-  size(1280, 640, P2D);
+  size(640, 640, P2D);
   background(255);
 
   tentacle = new Tentacle();
@@ -27,11 +28,12 @@ void setup() {
   mouseReleaseX = -1;
   mouseReleaseY = -1;
   
-  position = new PVector(100, height * 0.75 - 80); 
+  position = new PVector(width * 0.3, height * 0.75 - 50); 
   velocity = new PVector();
 
   currTargetDirection = null;
   surfaceY = height * 0.75;
+  isFirstRecoveryAndContact = true;
 
   playerInput = new PlayerInput(this);
   
@@ -77,8 +79,9 @@ void draw() {
 }
 
 void handleStep() {
-  if (!tentacle.hasInstruction() && !tentacle.hasFixedSegment()) {
+  if (isFirstRecoveryAndContact && !tentacle.hasInstruction() && !tentacle.hasFixedSegment()) {
     tentacle.recoveryAndContact(new PVector(1, 0.2), new PVector(0.5, 1));
+    isFirstRecoveryAndContact = false;
   }
 
   tentacle.step(1);
@@ -158,6 +161,9 @@ void keyPressed() {
 void keyReleased() {
   playerInput.keyReleased(key);
   switch (key) {
+    case ' ':
+      tentacle.inchToward(new PVector(-1, 0));
+      break;
     case 't':
       save(fileNamer.next());
       break;
