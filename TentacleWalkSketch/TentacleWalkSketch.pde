@@ -136,6 +136,15 @@ void drawSegments() {
       fill(Palette.light[1]);
     }
     
+    if (segment.isFixed) {
+      PVector segmentVector = segment.getVector();
+      segmentVector.normalize();
+      segmentVector.mult(10);
+      segmentVector.rotate(segment.fixedRotationDirection * PI / 2);
+
+      line(segment.endpointX(), segment.endpointY(), segment.endpointX() + segmentVector.x, segment.endpointY() + segmentVector.y);
+    }
+
     circle(segment.endpointX(), segment.endpointY(), 9);
   }
 

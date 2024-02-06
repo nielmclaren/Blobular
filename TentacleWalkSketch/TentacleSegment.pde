@@ -14,9 +14,11 @@ public class TentacleSegment {
   
   // Indicate whether this segment's endpoint is fixed.
   public boolean isFixed;
+
+  // The side of the tentacle that is fixed to a surface. Indicated by the direction to rotate towards the surface.
+  public int fixedRotationDirection;
   
   TentacleSegment(float lengthArg, float angleArg, float maxAngleDeltaArg) {
-
     length = lengthArg;
     angle = angleArg;
     pivot = new PVector();
@@ -24,6 +26,7 @@ public class TentacleSegment {
 
     maxAngleDelta = maxAngleDeltaArg;
     isFixed = false;
+    fixedRotationDirection = 0;
   }
 
   public float length() {

@@ -239,6 +239,7 @@ public class Tentacle {
       // Force remaining segments to rotate in the same direction as the segment that collided.
       instruction.rotationDirection = angleSign;
       segment.isFixed = true;
+      segment.fixedRotationDirection = angleSign;
     }
     
     dragRemainingSegments(instruction.segmentIndex + 1);
@@ -287,6 +288,7 @@ public class Tentacle {
     // FIXME: Assumes segment was not originally in a collided state.
     if (detectCollision(segment)) {
       segment.isFixed = true;
+      segment.fixedRotationDirection = angleSign;
 
       // Rotate 1° at a time until collision detected.
       float prevAngle = 0;
