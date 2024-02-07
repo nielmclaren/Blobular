@@ -151,7 +151,11 @@ public class Tentacle {
   }
 
   private int getFirstFixedSegmentIndex() {
-    for (int i = 0; i < segments.size(); i++) {
+    return getFirstFixedSegmentIndex(0);
+  }
+
+  private int getFirstFixedSegmentIndex(int startIndex) {
+    for (int i = startIndex; i < segments.size(); i++) {
       TentacleSegment segment = segments.get(i);
       if (segment.isFixed) {
         return i;
@@ -436,12 +440,60 @@ public class Tentacle {
       segmentC2.angle(prevAngleC);
       segmentC2.updateEndpoint();
 
+      instruction.segmentIndex--;
+      if (instruction.segmentIndex <= 0) {
+        instruction.isComplete = true;
+      }
       instruction.phase = 2;
     }
+
+    // TODO: If the tentacle is on an edge, the tip may not be able to find a surface to touch. Handle it.
   }
 
   private void inchTowardPhase2(InchTowardTentacleInstruction instruction) {
-    instruction.isComplete = true;
+    float angleError = radians(0.5);
+
+    boolean isCurrSegmentComplete = true;
+
+    TentacleSegment segmentA = segments.get(instruction.segmentIndex);
+    TentacleSegment prevSegment = segments.get(instruction.segmentIndex - 1);
+
+    if (segmentA.fixedRotationDirection == 0) {
+      // This segment was never attached to a surface.
+      instruction.segmentIndex--;
+      if (instruction.segmentIndex <= 0) {
+        instruction.isComplete = true;
+      }
+      return;
+    }
+
+    segmentA.isFixed = false;
+
+    // Rotate 90° away from the surface.
+    PVector targetVector = prevSegment.getVector();
+    targetVector.normalize();
+    targetVector.rotate(-segmentA.fixedRotationDirection * PI/2);
+    float angleDelta = min(PVector.angleBetween(segmentA.getVector(), targetVector), segmentA.maxAngleDelta);
+    if (angleDelta > angleError) {
+      segmentA.angle(segmentA.angle() - segmentA.fixedRotationDirection * angleDelta);
+      segmentA.updateEndpoint();
+
+      isCurrSegmentComplete = false;
+
+      int firstFixedSegmentIndex = getFirstFixedSegmentIndex(instruction.segmentIndex + 1);
+      TentacleSegment firstFixedSegment = segments.get(firstFixedSegmentIndex);
+      PVector firstFixedSegmentEndpoint = firstFixedSegment.endpoint();
+      simpleIk(instruction.segmentIndex + 1, firstFixedSegmentIndex);
+      firstFixedSegment.endpoint(firstFixedSegmentEndpoint);
+      updateSegmentPointsTipToBase(firstFixedSegmentIndex, instruction.segmentIndex);
+    }
+
+    if (isCurrSegmentComplete) {
+      instruction.segmentIndex--;
+      if (instruction.segmentIndex <= 0) {
+        instruction.isComplete = true;
+      }
+    }
   }
 
   private void tryToTriggerContactInstruction(TentacleInstruction originalInstruction) {
