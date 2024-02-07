@@ -41,7 +41,6 @@ public class TentacleSegment {
 
   public void angle(float v) {
     angle = v;
-    updateEndpoint();
   }
 
   public PVector pivot() {
