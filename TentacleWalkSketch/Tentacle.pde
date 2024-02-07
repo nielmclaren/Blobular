@@ -271,6 +271,22 @@ public class Tentacle {
   }
 
   private void evaluateInchTowardInstruction(InchTowardTentacleInstruction instruction) {
+    switch (instruction.phase) {
+      case 0:
+        inchTowardPhase0(instruction);
+        break;
+      case 1:
+        inchTowardPhase1(instruction);
+        break;
+      case 2:
+        inchTowardPhase2(instruction);
+        break;
+      default:
+        println("Error: unexpected InchTowardTentacleInstruction phase. " + instruction.phase);
+    }
+  }
+
+  private void inchTowardPhase0(InchTowardTentacleInstruction instruction) {
     float angleError = radians(0.5);
 
     boolean isCurrSegmentComplete = true;
@@ -361,66 +377,71 @@ public class Tentacle {
         if (instruction.segmentIndex + 2 < segments.size()) {
           updateSegmentPointsBaseToTip(instruction.segmentIndex + 2, segments.size());
         }
-
-        // Fourth segment
-
-        if (instruction.segmentIndex + 3 < segments.size()) {
-          TentacleSegment segmentD = segments.get(instruction.segmentIndex + 3);
-
-          // Rotate 90° away from the surface.
-          targetVector = segmentC.getVector();
-          targetVector.normalize();
-          targetVector.rotate(-segmentD.fixedRotationDirection * PI / 2);
-          angleDelta = min(PVector.angleBetween(segmentD.getVector(), targetVector), segmentD.maxAngleDelta * 2);
-
-          if (angleDelta > angleError) {
-            // Rotate all of them so that the relative rotations happening further down the tentacle are preserved.
-            // Otherwise those rotations will overshoot and they will keep spinning until this one completes.
-            rotateSegmentsBy(instruction.segmentIndex + 3, segments.size(), -segmentD.fixedRotationDirection * angleDelta);
-            //segmentD.angle(segmentD.angle() + segmentD.fixedRotationDirection * angleDelta);
-            //segmentD.updateEndpoint();
-
-            isCurrSegmentComplete = false;
-          }
-
-          if (instruction.segmentIndex + 3 < segments.size()) {
-            updateSegmentPointsBaseToTip(instruction.segmentIndex + 3, segments.size());
-          }
-
-          // Fifth segment
-
-          if (instruction.segmentIndex + 4 < segments.size()) {
-            TentacleSegment segmentE = segments.get(instruction.segmentIndex + 4);
-
-            // Rotate back to 0°.
-            targetVector = segmentD.getVector();
-            targetVector.normalize();
-            angleDelta = min(PVector.angleBetween(segmentE.getVector(), targetVector), segmentE.maxAngleDelta);
-
-            if (angleDelta > angleError) {
-              // Rotate all of them so that the relative rotations happening further down the tentacle are preserved.
-              // Otherwise those rotations will overshoot and they will keep spinning until this one completes.
-              rotateSegmentsBy(instruction.segmentIndex + 4, segments.size(), segmentE.fixedRotationDirection * angleDelta);
-              //segmentE.angle(segmentE.angle() + segmentE.fixedRotationDirection * angleDelta);
-              //segmentE.updateEndpoint();
-
-              isCurrSegmentComplete = false;
-            }
-
-            if (instruction.segmentIndex + 4 < segments.size()) {
-              updateSegmentPointsBaseToTip(instruction.segmentIndex + 4, segments.size());
-            }
-          }
-        }
       }
     }
 
     if (isCurrSegmentComplete) {
-      instruction.segmentIndex--;
-      if (instruction.segmentIndex <= 0) {
-        instruction.isComplete = true;
+      if (instruction.segmentIndex > segments.size() - 3) {
+        instruction.segmentIndex--;
+        if (instruction.segmentIndex <= 0) {
+          instruction.isComplete = true;
+        }
+      } else {
+        instruction.phase = 1;
       }
     }
+  }
+
+  private void inchTowardPhase1(InchTowardTentacleInstruction instruction) {
+    TentacleSegment tipSegment = segments.get(segments.size() - 1);
+
+    // Now the tentacle is in a box shape. Rotate the second segment clockwise
+    // and the third segment counter-clockwise until the tip touches the surface.
+    TentacleSegment segmentA2 = segments.get(instruction.segmentIndex);
+    TentacleSegment segmentB2 = segments.get(instruction.segmentIndex + 1);
+    TentacleSegment segmentC2 = segments.get(instruction.segmentIndex + 2);
+
+    float prevRotationB = segmentB2.angle();
+    float prevRotationC = segmentC2.angle();
+
+    rotateSegmentsBy(instruction.segmentIndex + 1, segments.size(), segmentB2.fixedRotationDirection * segmentB2.maxAngleDelta);
+    rotateSegmentsBy(instruction.segmentIndex + 2, segments.size(), -segmentC2.fixedRotationDirection * segmentC2.maxAngleDelta);
+    updateSegmentPointsBaseToTip(instruction.segmentIndex + 1, segments.size());
+
+    if (detectCollision(tipSegment)) {
+      tipSegment.isFixed = true;
+      tipSegment.fixedRotationDirection = segmentB2.fixedRotationDirection;
+
+      // Rotate 1° at a time until collision detected.
+      float prevAngleB = 0; // TODO: Give this a better name so I know it's the angle before the collision.
+      float prevAngleC = 0;
+      // TODO: Don't track max angle delta for each segment separately. It leads to situations like this where
+      // I need to iterate from 0 to two (potentially) different values of maxAngleDelta. Can add later if need.
+      for (float a = 0; a < segmentB2.maxAngleDelta; a += radians(1)) {
+        setSegmentsAngle(instruction.segmentIndex + 1, segments.size(), prevRotationB + segmentB2.fixedRotationDirection * a);
+        setSegmentsAngle(instruction.segmentIndex + 2, segments.size(), prevRotationC - segmentC2.fixedRotationDirection * a);
+        updateSegmentPointsBaseToTip(instruction.segmentIndex + 1, segments.size());
+        
+        if (detectCollision(tipSegment)) {
+          break;
+        }
+        
+        prevAngleB = segmentB2.angle();
+        prevAngleC = segmentC2.angle();
+      }
+
+      segmentB2.angle(prevAngleB);
+      segmentB2.updateEndpoint();
+
+      segmentC2.angle(prevAngleC);
+      segmentC2.updateEndpoint();
+
+      instruction.phase = 2;
+    }
+  }
+
+  private void inchTowardPhase2(InchTowardTentacleInstruction instruction) {
+    instruction.isComplete = true;
   }
 
   private void tryToTriggerContactInstruction(TentacleInstruction originalInstruction) {
@@ -457,7 +478,7 @@ public class Tentacle {
       segment.fixedRotationDirection = angleSign;
 
       // Rotate 1° at a time until collision detected.
-      float prevAngle = 0;
+      float prevAngle = 0; // TODO: Give this a better name so I know it's the angle before the collision.
       for (float a = 0; a < angleDelta; a += radians(1)) {
         segment.angle(prevRotation + angleSign * a);
         segment.updateEndpoint();
@@ -489,6 +510,21 @@ public class Tentacle {
   private boolean detectCollision(TentacleSegment segment) {
     // TODO: What's a good way to structure the code for collision detection?
     return position.y + segment.endpointY() > surfaceY;
+  }
+
+  /**
+   * Rotate all the specified segments to the given angle.
+   */
+  // Not including the segment at endIndex.
+  private void setSegmentsAngle(int startIndex, int endIndex, float v) {
+    assert(startIndex >= 0);
+    assert(endIndex <= segments.size());
+    assert(startIndex < endIndex);
+
+    for (int i = startIndex; i < endIndex; i++) {
+      TentacleSegment segment = segments.get(i);
+      segment.angle(v);
+    }
   }
 
   /**
