@@ -174,8 +174,9 @@ public class Tentacle {
     return total;
   }
 
-  // Rotate segments to move the first segment's pivot (the tentacle base) to the origin.
-  // Includes `startIndex` and `endIndex`.
+  // Rotate segments to move the segment at startIndex to the previous segment's
+  // endpoint or to the tentacle origin.
+  // Includes startIndex and endIndex.
   private void simpleIk(int startIndex, int endIndex) {
     assert(startIndex >= 0);
     assert(endIndex < segments.size());
@@ -198,7 +199,7 @@ public class Tentacle {
       // (Because we're going tip to base, the segment points away from the previous segment's endpoint.)
       segment.angle(targetToEndpoint.heading());
 
-      // Move thecurrent segment so that its pivot is at the previous segment's endpoint.
+      // Move the current segment so that its pivot is at the previous segment's endpoint.
       segment.pivot(target);
 
       segment.updateEndpoint();

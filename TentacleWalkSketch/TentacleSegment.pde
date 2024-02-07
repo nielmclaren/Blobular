@@ -15,9 +15,8 @@ public class TentacleSegment {
   // Indicate whether this segment's endpoint is fixed.
   public boolean isFixed;
 
-  // The side of the tentacle that is fixed to a surface.
+  // The side of the tentacle that is or was last fixed to a surface.
   // Indicated by the direction to rotate towards the surface.
-  // Should be set to zero when not fixed.
   public int fixedRotationDirection;
   
   TentacleSegment(float lengthArg, float angleArg, float maxAngleDeltaArg) {
