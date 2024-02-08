@@ -25,7 +25,7 @@ public class Tentacle {
       TentacleSegment segment = new TentacleSegment(
         segmentLength,
         baseAngle + radians(3) * i,
-        radians(5));
+        radians(2));
 
       segment.pivot(currPos);
       segment.updateEndpoint();
@@ -452,49 +452,88 @@ public class Tentacle {
   }
 
   private void inchTowardPhase2(InchTowardTentacleInstruction instruction) {
+    // TODO: Handle situations where the segment attaching and detaching are happening at different rates.
     float angleError = radians(0.5);
 
     boolean isCurrSegmentComplete = true;
 
-    TentacleSegment segmentA = segments.get(instruction.segmentIndex);
-    TentacleSegment prevSegment = segments.get(instruction.segmentIndex - 1);
+    if (instruction.segmentIndex > 0) {
+      TentacleSegment segmentA = segments.get(instruction.segmentIndex);
+      TentacleSegment prevSegment = segments.get(instruction.segmentIndex - 1);
 
-    if (segmentA.fixedRotationDirection == 0) {
-      // This segment was never attached to a surface.
-      instruction.segmentIndex--;
-      if (instruction.segmentIndex <= 0) {
-        instruction.isComplete = true;
+      if (segmentA.fixedRotationDirection == 0) {
+        // This segment was never attached to a surface.
+        instruction.segmentIndex--;
+        if (instruction.segmentIndex <= 0) {
+          instruction.isComplete = true;
+        }
+        return;
       }
-      return;
+
+      segmentA.isFixed = false;
+
+      // Rotate 90° away from the surface.
+      PVector targetVector = prevSegment.getVector();
+      targetVector.normalize();
+      targetVector.rotate(-segmentA.fixedRotationDirection * PI/2);
+      float angleDelta = min(PVector.angleBetween(segmentA.getVector(), targetVector), segmentA.maxAngleDelta);
+      if (angleDelta > angleError) {
+        segmentA.angle(segmentA.angle() - segmentA.fixedRotationDirection * angleDelta);
+        segmentA.updateEndpoint();
+      } else {
+        instruction.segmentIndex--;
+      }
     }
 
-    segmentA.isFixed = false;
+    // Rotate toward the surface until it collides.
+    // TODO: What if it doesn't collide, like if there's a gap in the floor there?
+    int firstFixedSegmentIndex = getFirstFixedSegmentIndex(instruction.segmentIndex + 1);
+    TentacleSegment firstFixedSegment = segments.get(firstFixedSegmentIndex);
 
-    // Rotate 90° away from the surface.
-    PVector targetVector = prevSegment.getVector();
-    targetVector.normalize();
-    targetVector.rotate(-segmentA.fixedRotationDirection * PI/2);
-    float angleDelta = min(PVector.angleBetween(segmentA.getVector(), targetVector), segmentA.maxAngleDelta);
-    if (angleDelta > angleError) {
-      segmentA.angle(segmentA.angle() - segmentA.fixedRotationDirection * angleDelta);
-      segmentA.updateEndpoint();
+    float prevRotation = firstFixedSegment.angle();
 
+    // TODO: Weed out hard-coded rotation directions.
+    
+    // Rotate in the reverse direction because it's rotating around the endpoint, not the pivot.
+    firstFixedSegment.angle(firstFixedSegment.angle() - firstFixedSegment.fixedRotationDirection * firstFixedSegment.maxAngleDelta);
+    firstFixedSegment.updatePivot();
+
+    if (detectPivotCollision(firstFixedSegment)) {
+      TentacleSegment beforeFirstFixedSegment = segments.get(firstFixedSegmentIndex - 1);
+      beforeFirstFixedSegment.isFixed = true;
+      beforeFirstFixedSegment.fixedRotationDirection = firstFixedSegment.fixedRotationDirection;
+
+      // Rotate 1° at a time until collision detected.
+      float prevAngle = 0; // TODO: Give this a better name so I know it's the angle before the collision.
+      for (float a = 0; a < firstFixedSegment.maxAngleDelta; a += radians(1)) {
+        // Rotate in the reverse direction because it's rotating around the endpoint, not the pivot.
+        firstFixedSegment.angle(prevRotation - firstFixedSegment.fixedRotationDirection * a);
+        firstFixedSegment.updatePivot();
+        
+        if (detectPivotCollision(firstFixedSegment)) {
+          break;
+        }
+        
+        prevAngle = firstFixedSegment.angle();
+      }
+      
+      firstFixedSegment.angle(prevAngle);
+      firstFixedSegment.updatePivot();
+    } else {
       isCurrSegmentComplete = false;
-
-      int firstFixedSegmentIndex = getFirstFixedSegmentIndex(instruction.segmentIndex + 1);
-      TentacleSegment firstFixedSegment = segments.get(firstFixedSegmentIndex);
-      PVector firstFixedSegmentEndpoint = firstFixedSegment.endpoint();
-      simpleIk(instruction.segmentIndex + 1, firstFixedSegmentIndex);
-      firstFixedSegment.endpoint(firstFixedSegmentEndpoint);
-      updateSegmentPointsTipToBase(firstFixedSegmentIndex, instruction.segmentIndex);
     }
 
-    if (isCurrSegmentComplete) {
-      instruction.segmentIndex--;
-      if (instruction.segmentIndex <= 0) {
-        instruction.isComplete = true;
+    PVector firstFixedSegmentEndpoint = firstFixedSegment.endpoint();
+    if (instruction.segmentIndex < firstFixedSegmentIndex - 1) {
+      for (int iteration = 0; iteration < 200; iteration++) {
+        simpleIk(instruction.segmentIndex, firstFixedSegmentIndex - 1);
       }
     }
+    //firstFixedSegment.endpoint(firstFixedSegmentEndpoint);
+    //firstFixedSegment.updatePivot();
+    updateSegmentPointsTipToBase(firstFixedSegmentIndex, instruction.segmentIndex);
+
+    // TODO: When does the instruction end?
   }
 
   private void tryToTriggerContactInstruction(TentacleInstruction originalInstruction) {
@@ -563,6 +602,10 @@ public class Tentacle {
   private boolean detectCollision(TentacleSegment segment) {
     // TODO: What's a good way to structure the code for collision detection?
     return position.y + segment.endpointY() > surfaceY;
+  }
+
+  private boolean detectPivotCollision(TentacleSegment segment) {
+    return position.y + segment.pivotY() > surfaceY;
   }
 
   /**
