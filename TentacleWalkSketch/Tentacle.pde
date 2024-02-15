@@ -5,13 +5,9 @@ public class Tentacle {
   protected List<TentacleSegment> segments;
   protected List<TentacleInstruction> instructions;
 
-  protected InchToward inchToward;
-
   public Tentacle() {
     segments = new ArrayList<TentacleSegment>();
     instructions = new ArrayList<TentacleInstruction>();
-
-    inchToward = new InchToward(this);
 
     initSegments();
   }
@@ -62,7 +58,7 @@ public class Tentacle {
   }
 
   public void inchToward(PVector direction) {
-    InchTowardInstruction instruction = new InchTowardInstruction();
+    InchTowardInstruction instruction = new InchTowardInstruction(this);
     instruction.segmentIndex = segments.size() - 1;
     instruction.direction = direction.copy();
     instructions.add(instruction);
@@ -234,7 +230,7 @@ public class Tentacle {
   private void evaluateInstructionAt(int instructionIndex) {
     TentacleInstruction instruction = instructions.get(instructionIndex);
     if (instruction instanceof InchTowardInstruction) {
-      inchToward.step((InchTowardInstruction) instruction);
+      ((InchTowardInstruction) instruction).step(instructionIndex);
       return;
     }
 
