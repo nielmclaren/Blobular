@@ -46,14 +46,14 @@ public class Tentacle {
   }
 
   public void pointTo(PVector direction) {
-    TentacleInstruction instruction = new TentacleInstruction();
+    PointAtInstruction instruction = new PointAtInstruction(this);
     instruction.targetDirection = direction.copy();
     instruction.targetDirection.normalize();
     instructions.add(instruction);
   }
 
   public void recoveryAndContact(PVector recoveryDirection, PVector contactDirection) {
-    TentacleInstruction instruction = new TentacleInstruction();
+    PointAtInstruction instruction = new PointAtInstruction(this);
     instruction.targetDirection = recoveryDirection.copy();
     instruction.targetDirection.normalize();
     instruction.contactTargetDirection = contactDirection.copy();
@@ -221,7 +221,7 @@ public class Tentacle {
       TentacleInstruction instruction = instructions.get(i);
 
       if (instruction.isComplete) {
-        // It is possible to encounter completed instructions here because of `cancelOlderInstructions()`.
+        // It is possible to encounter completed instructions here because of `cancelOlderPointAtInstructions()`.
         continue;
       }
 
@@ -238,62 +238,28 @@ public class Tentacle {
       return;
     }
 
-    TentacleSegment segment = segments.get(instruction.segmentIndex);
-    PVector pivot = segment.pivot();
-    PVector segmentVector = segment.getVector();
-    
-    float prevRotation = segment.angle();
-    float angleError = radians(0.5);
-    float angleDelta = min(PVector.angleBetween(segmentVector, instruction.targetDirection), segment.maxAngleDelta);
-    
-    int angleSign;
-    if (instruction.rotationDirection == 0) {
-      angleSign = RotationDirection.getRotationSign(segmentVector, instruction.targetDirection);
-    } else {
-      angleSign = instruction.rotationDirection;
-    }
-    
-    segment.angle(segment.angle() + angleSign * angleDelta);
-    segment.updateEndpoint();
-    
-    boolean collided = handleCollisions(segment, prevRotation, angleSign, angleDelta);
-    if (collided) {
-      // Force remaining segments to rotate in the same direction as the segment that collided.
-      instruction.rotationDirection = angleSign;
-      segment.isFixed = true;
-      segment.fixedRotationDirection = angleSign;
-    }
-    
-    dragRemainingSegments(instruction.segmentIndex + 1);
-    
-    // If this segment is in position then move onto next segment for the next iteration.
-    angleDelta = min(PVector.angleBetween(segment.getVector(), instruction.targetDirection), segment.maxAngleDelta);
-    if (collided || angleDelta <= angleError) {
-      instruction.segmentIndex++;
-      if (instruction.segmentIndex >= segments.size()) {
-        instruction.isComplete = true;
-      } else {
-        cancelOlderInstructions(instructionIndex, instruction.segmentIndex);
-        tryToTriggerContactInstruction(instruction);
-      }
+    if (instruction instanceof PointAtInstruction) {
+      ((PointAtInstruction) instruction).step(instructionIndex);
     }
   }
 
-  private void tryToTriggerContactInstruction(TentacleInstruction originalInstruction) {
+  protected void tryToTriggerContactInstruction(PointAtInstruction originalInstruction) {
     // When recovery instruction is more than halfway through, begin the contact instruction.
     if (originalInstruction.contactTargetDirection != null && originalInstruction.segmentIndex > segments.size() / 2) {
-      TentacleInstruction instruction = new TentacleInstruction();
+      PointAtInstruction instruction = new PointAtInstruction(this);
       instruction.targetDirection = originalInstruction.contactTargetDirection.copy();
       instruction.targetDirection.normalize();
       instructions.add(instruction);
     }
   }
 
-  private void cancelOlderInstructions(int instructionIndex, int segmentIndex) {
+  protected void cancelOlderPointAtInstructions(int instructionIndex, int segmentIndex) {
     for (int i = 0; i < instructionIndex; i++) {
       TentacleInstruction instruction = instructions.get(i);
-      if (instruction.segmentIndex <= segmentIndex) {
-        instruction.isComplete = true;
+      if (instruction instanceof PointAtInstruction) {
+        if (((PointAtInstruction) instruction).segmentIndex <= segmentIndex) {
+          instruction.isComplete = true;
+        }
       }
     }
   }
