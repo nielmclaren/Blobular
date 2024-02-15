@@ -62,7 +62,7 @@ public class Tentacle {
   }
 
   public void inchToward(PVector direction) {
-    InchTowardTentacleInstruction instruction = new InchTowardTentacleInstruction();
+    InchTowardInstruction instruction = new InchTowardInstruction();
     instruction.segmentIndex = segments.size() - 1;
     instruction.direction = direction.copy();
     instructions.add(instruction);
@@ -233,8 +233,8 @@ public class Tentacle {
 
   private void evaluateInstructionAt(int instructionIndex) {
     TentacleInstruction instruction = instructions.get(instructionIndex);
-    if (instruction instanceof InchTowardTentacleInstruction) {
-      inchToward.step((InchTowardTentacleInstruction) instruction);
+    if (instruction instanceof InchTowardInstruction) {
+      inchToward.step((InchTowardInstruction) instruction);
       return;
     }
 

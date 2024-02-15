@@ -8,7 +8,7 @@ class InchToward {
       segments = tentacle.segments();
   }
 
-  public void step(InchTowardTentacleInstruction instruction) {
+  public void step(InchTowardInstruction instruction) {
     switch (instruction.phase) {
       case 0:
         inchTowardPhase0(instruction);
@@ -20,11 +20,11 @@ class InchToward {
         inchTowardPhase2(instruction);
         break;
       default:
-        println("Error: unexpected InchTowardTentacleInstruction phase. " + instruction.phase);
+        println("Error: unexpected InchTowardInstruction phase. " + instruction.phase);
     }
   }
 
-  private void inchTowardPhase0(InchTowardTentacleInstruction instruction) {
+  private void inchTowardPhase0(InchTowardInstruction instruction) {
     float angleError = radians(0.5);
 
     boolean isCurrSegmentComplete = true;
@@ -130,7 +130,7 @@ class InchToward {
     }
   }
 
-  private void inchTowardPhase1(InchTowardTentacleInstruction instruction) {
+  private void inchTowardPhase1(InchTowardInstruction instruction) {
     TentacleSegment tipSegment = segments.get(segments.size() - 1);
 
     // Now the tentacle is in a box shape. Rotate the second segment clockwise
@@ -184,7 +184,7 @@ class InchToward {
     // TODO: If the tentacle is on an edge, the tip may not be able to find a surface to touch. Handle it.
   }
 
-  private void inchTowardPhase2(InchTowardTentacleInstruction instruction) {
+  private void inchTowardPhase2(InchTowardInstruction instruction) {
     // TODO: Handle situations where the segment attaching and detaching are happening at different rates.
     float angleError = radians(0.5);
 
