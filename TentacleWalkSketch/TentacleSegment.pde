@@ -9,9 +9,6 @@ public class TentacleSegment {
   protected float length;
   protected float angle;
   
-  // Constrain how quickly the angle can change.
-  public float maxAngleDelta;
-  
   // Indicate whether this segment's endpoint is fixed.
   public boolean isFixed;
 
@@ -19,13 +16,12 @@ public class TentacleSegment {
   // Indicated by the direction to rotate towards the surface.
   public int fixedRotationDirection;
   
-  TentacleSegment(float lengthArg, float angleArg, float maxAngleDeltaArg) {
+  TentacleSegment(float lengthArg, float angleArg) {
     length = lengthArg;
     angle = angleArg;
     pivot = new PVector();
     endpoint = new PVector();
 
-    maxAngleDelta = maxAngleDeltaArg;
     isFixed = false;
     fixedRotationDirection = 0;
   }

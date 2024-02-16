@@ -24,8 +24,7 @@ public class Tentacle {
       float segmentLength = map(i, 0, numSegments - 1, baseSegmentLength, tipSegmentLength);
       TentacleSegment segment = new TentacleSegment(
         segmentLength,
-        baseAngle + radians(3) * i,
-        radians(2));
+        baseAngle + radians(3) * i);
 
       segment.pivot(currPos);
       segment.updateEndpoint();
@@ -266,33 +265,6 @@ public class Tentacle {
       total += segment.length();
     }
     return total;
-  }
-
-  private boolean handleCollisions(TentacleSegment segment, float prevRotation, int angleSign, float angleDelta) {
-    // FIXME: Assumes segment was not originally in a collided state.
-    if (detectCollision(segment)) {
-      segment.isFixed = true;
-      segment.fixedRotationDirection = angleSign;
-
-      // Rotate 1° at a time until collision detected.
-      float prevAngle = 0; // TODO: Give this a better name so I know it's the angle before the collision.
-      for (float a = 0; a < angleDelta; a += radians(1)) {
-        segment.angle(prevRotation + angleSign * a);
-        segment.updateEndpoint();
-        
-        if (detectCollision(segment)) {
-          break;
-        }
-        
-        prevAngle = segment.angle();
-      }
-      
-      segment.angle(prevAngle);
-      segment.updateEndpoint();
-      
-      return true;
-    }
-    return false;
   }
 
   // Protected?

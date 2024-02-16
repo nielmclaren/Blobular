@@ -1,5 +1,13 @@
 
 class InchTowardInstruction extends TentacleInstruction {
+  private final float MAX_ANGLE_DELTA = radians(2);
+  private final float ANGLE_DELTA_ERROR = radians(0.5);
+
+  // Can't use enums inside inner class because they use static members.
+  private final int PHASE_DETACH_TIP = 0;
+  private final int PHASE_REATTACH_TIP = 1;
+  private final int PHASE_TRAVERSE_TO_BASE = 2;
+
   protected Tentacle tentacle;
   protected List<TentacleSegment> segments;
 
@@ -11,29 +19,28 @@ class InchTowardInstruction extends TentacleInstruction {
     tentacle = tentacleArg;
     segments = tentacle.segments();
 
-    phase = 0;
+    phase = PHASE_DETACH_TIP;
     direction = null;
     segmentIndex = 0;
   }
 
   public void step(int instructionIndex) {
     switch (phase) {
-      case 0:
-        inchTowardPhase0();
+      case PHASE_DETACH_TIP:
+        stepDetachTip();
         break;
-      case 1:
-        inchTowardPhase1();
+      case PHASE_REATTACH_TIP:
+        stepReattachTip();
         break;
-      case 2:
-        inchTowardPhase2();
+      case PHASE_TRAVERSE_TO_BASE:
+        stepTraverseToBase();
         break;
       default:
         println("Error: unexpected InchTowardInstruction phase. " + phase);
     }
   }
 
-  private void inchTowardPhase0() {
-    float angleError = radians(0.5);
+  private void stepDetachTip() {
 
     boolean isCurrSegmentComplete = true;
 
@@ -54,22 +61,14 @@ class InchTowardInstruction extends TentacleInstruction {
     // First segment
 
     // Rotate 90° away from the surface.
-    PVector targetVector = prevSegment.getVector();
-    targetVector.normalize();
-    targetVector.rotate(-segmentA.fixedRotationDirection * PI/2);
-    float angleDelta = min(PVector.angleBetween(segmentA.getVector(), targetVector), segmentA.maxAngleDelta);
-    if (angleDelta > angleError) {
+    float angleDelta = min(getAngleBetween(segmentA.angle(), prevSegment.angle() - segmentA.fixedRotationDirection * PI/2), MAX_ANGLE_DELTA);
+    if (angleDelta > ANGLE_DELTA_ERROR) {
       // Rotate all of them so that the relative rotations happening further down the tentacle are preserved.
       // Otherwise those rotations will overshoot and they will keep spinning until this one completes.
       tentacle.rotateSegmentsBy(segmentIndex, segments.size(), -segmentA.fixedRotationDirection * angleDelta);
-      //segmentA.angle(segmentA.angle() - segmentA.fixedRotationDirection * angleDelta);
-      //segmentA.updateEndpoint();
+      tentacle.updateSegmentPointsBaseToTip(segmentIndex, segments.size());
 
       isCurrSegmentComplete = false;
-    }
-
-    if (segmentIndex < segments.size()) {
-      tentacle.updateSegmentPointsBaseToTip(segmentIndex, segments.size());
     }
 
     // Second segment
@@ -78,25 +77,12 @@ class InchTowardInstruction extends TentacleInstruction {
       TentacleSegment segmentB = segments.get(segmentIndex + 1);
 
       // Rotate 90° toward the surface.
-      targetVector = segmentA.getVector();
-      targetVector.normalize();
-      targetVector.rotate(segmentB.fixedRotationDirection * PI / 2);
-      angleDelta = min(PVector.angleBetween(segmentB.getVector(), targetVector), segmentB.maxAngleDelta * 2);
-
-      if (angleDelta > angleError) {
-        //println(segmentIndex + " " + round(degrees(targetVector.heading())) + " " + round(degrees(segmentB.angle())) + " " + round(degrees(angleDelta)) + " " + round(degrees(segmentB.angle() + segmentB.fixedRotationDirection * angleDelta)));
-
-        // Rotate all of them so that the relative rotations happening further down the tentacle are preserved.
-        // Otherwise those rotations will overshoot and they will keep spinning until this one completes.
+      angleDelta = min(getAngleBetween(segmentB.angle(), segmentA.angle() + segmentB.fixedRotationDirection * PI/2), MAX_ANGLE_DELTA * 2);
+      if (angleDelta > ANGLE_DELTA_ERROR) {
         tentacle.rotateSegmentsBy(segmentIndex + 1, segments.size(), segmentB.fixedRotationDirection * angleDelta);
-        //segmentB.angle(segmentB.angle() + segmentB.fixedRotationDirection * angleDelta);
-        //segmentB.updateEndpoint();
+        tentacle.updateSegmentPointsBaseToTip(segmentIndex + 1, segments.size());
 
         isCurrSegmentComplete = false;
-      }
-
-      if (segmentIndex + 1 < segments.size()) {
-        tentacle.updateSegmentPointsBaseToTip(segmentIndex + 1, segments.size());
       }
 
       // Third segment
@@ -104,97 +90,84 @@ class InchTowardInstruction extends TentacleInstruction {
       if (segmentIndex + 2 < segments.size()) {
         TentacleSegment segmentC = segments.get(segmentIndex + 2);
 
-        // Rotate 90° toward the surface.
-        targetVector = segmentB.getVector();
-        targetVector.normalize();
-        targetVector.rotate(segmentC.fixedRotationDirection * PI / 2);
-        angleDelta = min(PVector.angleBetween(segmentC.getVector(), targetVector), segmentC.maxAngleDelta);
-
-        if (angleDelta > angleError) {
-          // Rotate all of them so that the relative rotations happening further down the tentacle are preserved.
-          // Otherwise those rotations will overshoot and they will keep spinning until this one completes.
+        // Also rotate 90° toward the surface.
+        angleDelta = min(getAngleBetween(segmentC.angle(), segmentB.angle() + segmentC.fixedRotationDirection * PI/2), MAX_ANGLE_DELTA);
+        if (angleDelta > ANGLE_DELTA_ERROR) {
           tentacle.rotateSegmentsBy(segmentIndex + 2, segments.size(), segmentC.fixedRotationDirection * angleDelta);
-          //segmentC.angle(segmentC.angle() + segmentC.fixedRotationDirection * angleDelta);
-          //segmentC.updateEndpoint();
+          tentacle.updateSegmentPointsBaseToTip(segmentIndex + 2, segments.size());
 
           isCurrSegmentComplete = false;
-        }
-
-        if (segmentIndex + 2 < segments.size()) {
-          tentacle.updateSegmentPointsBaseToTip(segmentIndex + 2, segments.size());
         }
       }
     }
 
     if (isCurrSegmentComplete) {
+      // Only the three segments nearest the tip are handled in this phase.
       if (segmentIndex > segments.size() - 3) {
         segmentIndex--;
         if (segmentIndex <= 0) {
           isComplete = true;
         }
       } else {
-        phase = 1;
+        phase = PHASE_REATTACH_TIP;
       }
     }
   }
 
-  private void inchTowardPhase1() {
+  private void stepReattachTip() {
     TentacleSegment tipSegment = segments.get(segments.size() - 1);
 
     // Now the tentacle is in a box shape. Rotate the second segment clockwise
     // and the third segment counter-clockwise until the tip touches the surface.
-    TentacleSegment segmentA2 = segments.get(segmentIndex);
-    TentacleSegment segmentB2 = segments.get(segmentIndex + 1);
-    TentacleSegment segmentC2 = segments.get(segmentIndex + 2);
+    TentacleSegment segmentA = segments.get(segmentIndex);
+    TentacleSegment segmentB = segments.get(segmentIndex + 1);
+    TentacleSegment segmentC = segments.get(segmentIndex + 2);
 
-    float prevRotationB = segmentB2.angle();
-    float prevRotationC = segmentC2.angle();
+    float prevRotationB = segmentB.angle();
+    float prevRotationC = segmentC.angle();
 
-    tentacle.rotateSegmentsBy(segmentIndex + 1, segments.size(), segmentB2.fixedRotationDirection * segmentB2.maxAngleDelta);
-    tentacle.rotateSegmentsBy(segmentIndex + 2, segments.size(), -segmentC2.fixedRotationDirection * segmentC2.maxAngleDelta);
+    tentacle.rotateSegmentsBy(segmentIndex + 1, segments.size(), segmentB.fixedRotationDirection * MAX_ANGLE_DELTA);
+    tentacle.rotateSegmentsBy(segmentIndex + 2, segments.size(), -segmentC.fixedRotationDirection * MAX_ANGLE_DELTA);
     tentacle.updateSegmentPointsBaseToTip(segmentIndex + 1, segments.size());
 
     if (tentacle.detectCollision(tipSegment)) {
       tipSegment.isFixed = true;
-      tipSegment.fixedRotationDirection = segmentB2.fixedRotationDirection;
+      tipSegment.fixedRotationDirection = segmentB.fixedRotationDirection;
 
       // Rotate 1° at a time until collision detected.
       float prevAngleB = 0; // TODO: Give this a better name so I know it's the angle before the collision.
       float prevAngleC = 0;
-      // TODO: Don't track max angle delta for each segment separately. It leads to situations like this where
-      // I need to iterate from 0 to two (potentially) different values of maxAngleDelta. Can add later if need.
-      for (float a = 0; a < segmentB2.maxAngleDelta; a += radians(1)) {
-        tentacle.setSegmentsAngle(segmentIndex + 1, segments.size(), prevRotationB + segmentB2.fixedRotationDirection * a);
-        tentacle.setSegmentsAngle(segmentIndex + 2, segments.size(), prevRotationC - segmentC2.fixedRotationDirection * a);
+      for (float a = 0; a < MAX_ANGLE_DELTA; a += radians(1)) {
+        tentacle.setSegmentsAngle(segmentIndex + 1, segments.size(), prevRotationB + segmentB.fixedRotationDirection * a);
+        tentacle.setSegmentsAngle(segmentIndex + 2, segments.size(), prevRotationC - segmentC.fixedRotationDirection * a);
         tentacle.updateSegmentPointsBaseToTip(segmentIndex + 1, segments.size());
         
         if (tentacle.detectCollision(tipSegment)) {
           break;
         }
         
-        prevAngleB = segmentB2.angle();
-        prevAngleC = segmentC2.angle();
+        prevAngleB = segmentB.angle();
+        prevAngleC = segmentC.angle();
       }
 
-      segmentB2.angle(prevAngleB);
-      segmentB2.updateEndpoint();
+      segmentB.angle(prevAngleB);
+      segmentB.updateEndpoint();
 
-      segmentC2.angle(prevAngleC);
-      segmentC2.updateEndpoint();
+      segmentC.angle(prevAngleC);
+      segmentC.updateEndpoint();
 
       segmentIndex--;
       if (segmentIndex <= 0) {
         isComplete = true;
       }
-      phase = 2;
+      phase = PHASE_TRAVERSE_TO_BASE;
     }
 
     // TODO: If the tentacle is on an edge, the tip may not be able to find a surface to touch. Handle it.
   }
 
-  private void inchTowardPhase2() {
+  private void stepTraverseToBase() {
     // TODO: Handle situations where the segment attaching and detaching are happening at different rates.
-    float angleError = radians(0.5);
 
     boolean isCurrSegmentComplete = true;
 
@@ -214,11 +187,8 @@ class InchTowardInstruction extends TentacleInstruction {
       segmentA.isFixed = false;
 
       // Rotate 90° away from the surface.
-      PVector targetVector = prevSegment.getVector();
-      targetVector.normalize();
-      targetVector.rotate(-segmentA.fixedRotationDirection * PI/2);
-      float angleDelta = min(PVector.angleBetween(segmentA.getVector(), targetVector), segmentA.maxAngleDelta);
-      if (angleDelta > angleError) {
+      float angleDelta = min(getAngleBetween(segmentA.angle(), prevSegment.angle() - segmentA.fixedRotationDirection * PI/2), MAX_ANGLE_DELTA);
+      if (angleDelta > ANGLE_DELTA_ERROR) {
         segmentA.angle(segmentA.angle() - segmentA.fixedRotationDirection * angleDelta);
         segmentA.updateEndpoint();
       } else {
@@ -236,7 +206,7 @@ class InchTowardInstruction extends TentacleInstruction {
     // TODO: Weed out hard-coded rotation directions.
     
     // Rotate in the reverse direction because it's rotating around the endpoint, not the pivot.
-    firstFixedSegment.angle(firstFixedSegment.angle() - firstFixedSegment.fixedRotationDirection * firstFixedSegment.maxAngleDelta);
+    firstFixedSegment.angle(firstFixedSegment.angle() - firstFixedSegment.fixedRotationDirection * MAX_ANGLE_DELTA);
     firstFixedSegment.updatePivot();
 
     if (tentacle.detectPivotCollision(firstFixedSegment)) {
@@ -246,7 +216,7 @@ class InchTowardInstruction extends TentacleInstruction {
 
       // Rotate 1° at a time until collision detected.
       float prevAngle = 0; // TODO: Give this a better name so I know it's the angle before the collision.
-      for (float a = 0; a < firstFixedSegment.maxAngleDelta; a += radians(1)) {
+      for (float a = 0; a < MAX_ANGLE_DELTA; a += radians(1)) {
         // Rotate in the reverse direction because it's rotating around the endpoint, not the pivot.
         firstFixedSegment.angle(prevRotation - firstFixedSegment.fixedRotationDirection * a);
         firstFixedSegment.updatePivot();
@@ -275,5 +245,9 @@ class InchTowardInstruction extends TentacleInstruction {
     tentacle.updateSegmentPointsTipToBase(firstFixedSegmentIndex, segmentIndex);
 
     // TODO: When does the instruction end?
+  }
+
+  private float getAngleBetween(float a, float b) {
+    return PI - abs(abs(b - a) % (2 * PI) - PI);
   }
 }
