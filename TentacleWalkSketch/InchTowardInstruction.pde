@@ -200,42 +200,77 @@ class InchTowardInstruction extends TentacleInstruction {
       }
     }
 
-    // Rotate toward the surface until it collides.
+    // Rotate `firstFixedSegment` around the endpoint toward the surface until the pivot collides.
     // TODO: What if it doesn't collide, like if there's a gap in the floor there?
     int firstFixedSegmentIndex = tentacle.getFirstFixedSegmentIndex(segmentIndex + 1);
     TentacleSegment firstFixedSegment = segments.get(firstFixedSegmentIndex);
 
-    float originalAngle = firstFixedSegment.angle();
+    if (firstFixedSegmentIndex - segmentIndex > 3) {
+      println("Got enough segments to start re-attaching segments.");
+      float originalAngle = firstFixedSegment.angle();
 
-    // TODO: Weed out hard-coded rotation directions.
-    
-    // Rotate in the reverse direction because it's rotating around the endpoint, not the pivot.
-    firstFixedSegment.angle(firstFixedSegment.angle() - firstFixedSegment.fixedRotationDirection * MAX_ANGLE_DELTA);
-    firstFixedSegment.updatePivot();
-
-    if (tentacle.detectPivotCollision(firstFixedSegment)) {
-      TentacleSegment beforeFirstFixedSegment = segments.get(firstFixedSegmentIndex - 1);
-      beforeFirstFixedSegment.isFixed = true;
-      beforeFirstFixedSegment.fixedRotationDirection = firstFixedSegment.fixedRotationDirection;
-
-      // Rotate in the reverse direction because it's rotating around the endpoint, not the pivot.
-      float prevAngle = getAngleJustBeforeCollision(firstFixedSegment, originalAngle, -firstFixedSegment.fixedRotationDirection);
+      // TODO: Weed out hard-coded rotation directions.
       
-      firstFixedSegment.angle(prevAngle);
+      // Rotate in the reverse direction because it's rotating around the endpoint, not the pivot.
+      firstFixedSegment.angle(firstFixedSegment.angle() - firstFixedSegment.fixedRotationDirection * MAX_ANGLE_DELTA);
       firstFixedSegment.updatePivot();
-    } else {
-      isCurrSegmentComplete = false;
-    }
 
-    PVector firstFixedSegmentEndpoint = firstFixedSegment.endpoint();
-    if (segmentIndex < firstFixedSegmentIndex - 1) {
-      for (int iteration = 0; iteration < 200; iteration++) {
-        tentacle.simpleIk(segmentIndex, firstFixedSegmentIndex - 1);
+      if (tentacle.detectPivotCollision(firstFixedSegment)) {
+        TentacleSegment beforeFirstFixedSegment = segments.get(firstFixedSegmentIndex - 1);
+        beforeFirstFixedSegment.isFixed = true;
+        beforeFirstFixedSegment.fixedRotationDirection = firstFixedSegment.fixedRotationDirection;
+
+        // Rotate in the reverse direction because it's rotating around the endpoint, not the pivot.
+        float a = getAngleJustBeforeCollision(firstFixedSegment, originalAngle, -firstFixedSegment.fixedRotationDirection);
+        
+        firstFixedSegment.angle(a);
+        firstFixedSegment.updatePivot();
       }
     }
-    //firstFixedSegment.endpoint(firstFixedSegmentEndpoint);
-    //firstFixedSegment.updatePivot();
-    tentacle.updateSegmentPointsTipToBase(firstFixedSegmentIndex, segmentIndex);
+
+    // Make an arc out of the segments between segmentIndex and firstFixedSegmentIndex. //<>// //<>//
+    
+    if (firstFixedSegmentIndex - segmentIndex == 2) {
+      println("firstFixedSegmentIndex - segmentIndex == 2");
+      // Only one segment between the detaching and attaching segments. Just point it the
+      // right direction and hope for the best.
+      PVector h = PVector.sub(firstFixedSegment.pivot(), segment0.endpoint());
+      TentacleSegment segment = segments.get(segmentIndex + 1);
+      segment.angle(h.heading());
+      // TODO: Prevent this case from happening because there's no way to make a single segment
+      // fit the distance between the detaching and attaching segments.
+    } else if (firstFixedSegmentIndex - segmentIndex == 3) {
+      println("firstFixedSegmentIndex - segmentIndex == 3");
+      // Triangle case.
+      TentacleSegment a = segments.get(segmentIndex + 1);
+      TentacleSegment b = segments.get(segmentIndex + 2);
+      PVector c = PVector.sub(firstFixedSegment.pivot(), segment0.endpoint());
+      if (c.mag() >= a.length() + b.length()) {
+        // The segments cannot cover the required distance. Just point them in the
+        // right direction and hope for the best.
+        println("got c > a + b");
+        a.angle(c.heading());
+        b.angle(c.heading());
+      } else {
+        // Angle B = acos( (a^2 + c^2 - b^2) / (2ac) )
+        float B = acos( (a.length() * a.length()  +  c.mag() * c.mag() - b.length() * b.length()) / (2 * a.length() * c.mag()) );
+        println((a.length() * a.length()  +  c.mag() * c.mag() - b.length() * b.length()) / (2 * a.length() * c.mag()));
+        if (Float.isNaN(B)) {
+          println("gotNaN");
+        }
+        a.angle(c.heading() - B);
+        // Angle C = acos( (a^2 + b^2 - c^2) / (2ab) )
+        float C = acos( (a.length() * a.length()  +  b.length() * b.length()  -  c.mag() * c.mag()) / (2 * a.length() * b.length()) );
+        b.angle(a.angle() + PI - C);
+      }
+    } else {
+      println("firstFixedSegmentIndex - segmentIndex >= 4");
+
+      tentacle.simpleIkBaseToTip(segmentIndex + 1, firstFixedSegmentIndex - 1);
+    }
+
+    //tentacle.updateSegmentPointsTipToBase(firstFixedSegmentIndex, segmentIndex);
+    tentacle.updateSegmentPointsBaseToTip(segmentIndex, firstFixedSegmentIndex);
 
     // TODO: When does the instruction end?
   }

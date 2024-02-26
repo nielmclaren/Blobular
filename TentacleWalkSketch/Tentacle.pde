@@ -95,7 +95,7 @@ public class Tentacle {
 
     // TODO: Improve iteration. I.e., check error value and break early.
     for (int iteration = 0; iteration < 20; iteration++) {
-      simpleIk(0, min(firstFixedSegmentIndex, segments.size() - 1));
+      simpleIkTipToBase(0, min(firstFixedSegmentIndex, segments.size() - 1));
     }
 
     if (firstFixedSegmentIndex < segments.size()) {
@@ -175,8 +175,9 @@ public class Tentacle {
 
   // Rotate segments to move the segment at startIndex to the previous segment's
   // endpoint or to the tentacle origin.
+  // Note that the algorithm itself iterates from base to tip.
   // Includes startIndex and endIndex.
-  protected void simpleIk(int startIndex, int endIndex) {
+  protected void simpleIkTipToBase(int startIndex, int endIndex) {
     assert(startIndex >= 0);
     assert(endIndex < segments.size());
     assert(startIndex < endIndex);
@@ -202,6 +203,31 @@ public class Tentacle {
       segment.pivot(target);
 
       segment.updateEndpoint();
+    }
+  }
+
+  // Rotate segments to move the segment at endIndex to the next segment's pivot.
+  // Note that the algorithm itself iterates from tip to base.
+  // Includes startIndex and endIndex.
+  // Tip segment has nothing to move to so endIndex must not be tip segment.
+  protected void simpleIkBaseToTip(int startIndex, int endIndex) {
+    assert(startIndex >= 0);
+    assert(endIndex < segments.size() - 1);
+    assert(startIndex < endIndex);
+
+    for (int i = endIndex; i >= startIndex; i--) {
+      TentacleSegment nextSegment = segments.get(i + 1);
+      PVector target = nextSegment.pivot();
+
+      TentacleSegment segment = segments.get(i);
+      PVector pivotToTarget = PVector.sub(target, segment.pivot());
+
+      // Rotate the current segment to point its endpoint at the next segment's pivot.
+      segment.angle(pivotToTarget.heading());
+
+      // Move the current segment so that its endpoint is at the next segment's pivot.
+      segment.endpoint(target);
+      segment.updatePivot();
     }
   }
 
