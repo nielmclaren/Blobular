@@ -17,7 +17,10 @@ PlayerInput playerInput;
 
 FileNamer folderNamer;
 FileNamer fileNamer;
+boolean isPlaying;
 boolean isRecording;
+
+String debugOutput;
 
 void setup() {
   size(640, 640, P2D);
@@ -39,10 +42,15 @@ void setup() {
   
   folderNamer = new FileNamer("screenies/build", "/");
   fileNamer = new FileNamer(folderNamer.next() + "frame", "gif");
+  isPlaying = true;
   isRecording = false;
+  
+  debugOutput = "";
 }
 
 void draw() {
+  debugOutput = "";
+
   handleStep();
   handlePlayerMovement();
 
@@ -73,6 +81,10 @@ void draw() {
     line(mouseReleaseX + offset, mouseReleaseY - offset, mouseReleaseX - offset, mouseReleaseY + offset);
   }
 
+  fill(0);
+  textSize(16);
+  text(debugOutput, 30, 30);
+
   if (isRecording && frameCount % 5 == 0) {
     save(fileNamer.next());
   }
@@ -84,7 +96,9 @@ void handleStep() {
     isFirstRecoveryAndContact = false;
   }
 
-  tentacle.step(1);
+  if (isPlaying) {
+    tentacle.step(1);
+  }
 }
 
 void handlePlayerMovement() {
@@ -162,13 +176,19 @@ void keyReleased() {
   playerInput.keyReleased(key);
   switch (key) {
     case ' ':
-      tentacle.inchToward(new PVector(-1, 0));
+      tentacle.step(1);
+      break;
+    case 'g':
+      isRecording = !isRecording;
+      break;
+    case 'p':
+      isPlaying = !isPlaying;
       break;
     case 't':
       save(fileNamer.next());
       break;
-    case 'g':
-      isRecording = !isRecording;
+    case 'x':
+      tentacle.inchToward(new PVector(-1, 0));
       break;
   }
 }

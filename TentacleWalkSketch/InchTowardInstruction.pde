@@ -61,7 +61,8 @@ class InchTowardInstruction extends TentacleInstruction {
     // First segment
 
     // Rotate 90° away from the surface.
-    float angleDelta = min(getAngleBetween(segment0.angle(), prevSegment.angle() - segment0.fixedRotationDirection * PI/2), MAX_ANGLE_DELTA);
+    float targetAngle = prevSegment.angle() - segment0.fixedRotationDirection * PI/2;
+    float angleDelta = min(getAngleBetween(segment0.angle(), targetAngle), MAX_ANGLE_DELTA);
     if (angleDelta > ANGLE_DELTA_ERROR) {
       // Rotate all of them so that the relative rotations happening further down the tentacle are preserved.
       // Otherwise those rotations will overshoot and they will keep spinning until this one completes.
@@ -77,7 +78,8 @@ class InchTowardInstruction extends TentacleInstruction {
       TentacleSegment segment1 = segments.get(segmentIndex + 1);
 
       // Rotate 90° toward the surface.
-      angleDelta = min(getAngleBetween(segment1.angle(), segment0.angle() + segment1.fixedRotationDirection * PI/2), MAX_ANGLE_DELTA * 2);
+      targetAngle = segment0.angle() + segment1.fixedRotationDirection * PI/2;
+      angleDelta = min(getAngleBetween(segment1.angle(), targetAngle), MAX_ANGLE_DELTA * 2);
       if (angleDelta > ANGLE_DELTA_ERROR) {
         tentacle.rotateSegmentsBy(segmentIndex + 1, segments.size(), segment1.fixedRotationDirection * angleDelta);
         tentacle.updateSegmentPointsBaseToTip(segmentIndex + 1, segments.size());
@@ -91,7 +93,8 @@ class InchTowardInstruction extends TentacleInstruction {
         TentacleSegment segment2 = segments.get(segmentIndex + 2);
 
         // Also rotate 90° toward the surface.
-        angleDelta = min(getAngleBetween(segment2.angle(), segment1.angle() + segment2.fixedRotationDirection * PI/2), MAX_ANGLE_DELTA);
+        targetAngle = segment1.angle() + segment2.fixedRotationDirection * PI/2;
+        angleDelta = min(getAngleBetween(segment2.angle(), targetAngle), MAX_ANGLE_DELTA);
         if (angleDelta > ANGLE_DELTA_ERROR) {
           tentacle.rotateSegmentsBy(segmentIndex + 2, segments.size(), segment2.fixedRotationDirection * angleDelta);
           tentacle.updateSegmentPointsBaseToTip(segmentIndex + 2, segments.size());
@@ -170,8 +173,9 @@ class InchTowardInstruction extends TentacleInstruction {
 
     boolean isCurrSegmentComplete = true;
 
+    TentacleSegment segment0 = segments.get(segmentIndex);
+
     if (segmentIndex > 0) {
-      TentacleSegment segment0 = segments.get(segmentIndex);
       TentacleSegment prevSegment = segments.get(segmentIndex - 1);
 
       if (segment0.fixedRotationDirection == 0) {
@@ -186,7 +190,8 @@ class InchTowardInstruction extends TentacleInstruction {
       segment0.isFixed = false;
 
       // Rotate 90° away from the surface.
-      float angleDelta = min(getAngleBetween(segment0.angle(), prevSegment.angle() - segment0.fixedRotationDirection * PI/2), MAX_ANGLE_DELTA);
+      float targetAngle = prevSegment.angle() - segment0.fixedRotationDirection * PI/2;
+      float angleDelta = min(getAngleBetween(segment0.angle(), targetAngle), MAX_ANGLE_DELTA);
       if (angleDelta > ANGLE_DELTA_ERROR) {
         segment0.angle(segment0.angle() - segment0.fixedRotationDirection * angleDelta);
         segment0.updateEndpoint();
